@@ -1,7 +1,7 @@
-//-------- easyballoon è¨­å®šãƒ•ã‚¡ã‚¤ãƒ«
+//-------- easyballoon İ’èƒtƒ@ƒCƒ‹
 //-------- Copyright (C) 2001-2003 umeici.
 
-//-------- æƒ³åƒï¼ˆsakuraå´ï¼‰
+//-------- ‘z‘œisakura‘¤j
 [handbal]
 position,			lefttop
 skin,				handbal.png

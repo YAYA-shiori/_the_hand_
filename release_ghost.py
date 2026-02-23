@@ -3,21 +3,24 @@
 release_ghost.py - Ukagaka ghost release tooling
 
 Subcommands:
-  dau  Generate updates2.dau
-         Spec: https://ssp.shillest.net/ukadoc/manual/spec_update_file.html
-  nar  Create .nar archive (ZIP with .nar extension)
+  dau     Generate updates2.dau
+            Spec: https://ssp.shillest.net/ukadoc/manual/spec_update_file.html
+  nar     Create .nar archive (ZIP with .nar extension)
+  delete  Generate delete.txt (files removed since a previous git ref)
 
 Usage:
-  python release_ghost.py dau [--root DIR] [--output PATH]
-  python release_ghost.py nar [--root DIR] [--output PATH]
+  python release_ghost.py dau    [--root DIR] [--output PATH]
+  python release_ghost.py nar    [--root DIR] [--output PATH]
+  python release_ghost.py delete [--root DIR] [--output PATH] [--prev-ref REF]
 
 Defaults:
   --root    current directory
   --output  <root>/updates2.dau  (dau)
             <root>/<dirname>.nar (nar)
+            <root>/delete.txt    (delete)
 
 Ignore files (gitignore syntax):
-  .updateignore  patterns excluded from updates2.dau
+  .updateignore  patterns excluded from updates2.dau and delete.txt
   .narignore     patterns excluded from .nar archive
 """
 
@@ -141,6 +144,62 @@ def cmd_dau(root: Path, output: Path) -> None:
     print(f'Generated {output} ({len(files)} files)')
 
 
+# ── delete.txt 生成 ──────────────────────────────────────────────────────────
+
+def cmd_delete(root: Path, output: Path, prev_ref: str | None) -> None:
+    """delete.txt を累積方式で生成する。
+
+    既存の delete.txt（蓄積済みの削除履歴）に前リリースからの削除分を追加し、
+    現在存在するファイルを除外して書き出す。
+    配布対象外のファイル（.updateignore に一致するもの）も除外する。
+    """
+    ignore_patterns = _load_ignore_patterns(root / '.updateignore')
+    # これらは配布物だが削除リスト対象外
+    always_exclude = {'updates2.dau', 'delete.txt', 'release_ghost.py'}
+
+    # 既存の delete.txt から蓄積済みエントリを読み込む
+    accumulated: set[str] = set()
+    if output.exists():
+        for line in output.read_text(encoding='utf-8').splitlines():
+            line = line.strip()
+            if line:
+                accumulated.add(line)
+
+    # 現在のファイル一覧（除外判定に使用）
+    curr_result = subprocess.run(
+        ['git', 'ls-files', '--cached', '--others', '--exclude-standard'],
+        cwd=root, capture_output=True, text=True, check=True,
+    )
+    curr_files = {r.replace('\\', '/') for r in curr_result.stdout.splitlines()}
+
+    # 前リリースから今回削除されたファイルを取得
+    newly_deleted: set[str] = set()
+    if prev_ref is not None:
+        try:
+            prev_result = subprocess.run(
+                ['git', 'ls-tree', '-r', '--name-only', prev_ref],
+                cwd=root, capture_output=True, text=True, check=True,
+            )
+            prev_files = {r.replace('\\', '/') for r in prev_result.stdout.splitlines()}
+            newly_deleted = prev_files - curr_files
+        except subprocess.CalledProcessError:
+            print(f'Warning: could not resolve ref {prev_ref!r}; skipping diff')
+
+    # 累積 ∪ 新規削除 − 現存ファイル − 除外対象
+    deleted = sorted(
+        rel for rel in (accumulated | newly_deleted)
+        if rel not in always_exclude
+        and rel not in curr_files
+        and not _is_ignored(rel, ignore_patterns)
+    )
+
+    content = '\n'.join(deleted) + ('\n' if deleted else '')
+    output.write_bytes(content.encode('utf-8'))
+    print(f'Generated {output} ({len(deleted)} files to delete)')
+    for f in deleted:
+        print(f'  Delete: {f}')
+
+
 # ── .nar アーカイブ生成 ──────────────────────────────────────────────────────
 
 def cmd_nar(root: Path, output: Path) -> None:
@@ -186,6 +245,17 @@ def main() -> None:
         metavar='PATH', help='output path (default: <root>/<dirname>.nar)',
     )
 
+    # delete サブコマンド
+    p_del = sub.add_parser('delete', help='generate delete.txt')
+    p_del.add_argument(
+        '--output', type=Path, default=None,
+        metavar='PATH', help='output path (default: <root>/delete.txt)',
+    )
+    p_del.add_argument(
+        '--prev-ref', default=None,
+        metavar='REF', help='previous git ref (tag, SHA, etc.) to compare against',
+    )
+
     args = parser.parse_args()
     root = args.root.resolve()
 
@@ -196,6 +266,10 @@ def main() -> None:
     elif args.command == 'nar':
         output = args.output or (root / (root.name + '.nar'))
         cmd_nar(root, output.resolve())
+
+    elif args.command == 'delete':
+        output = args.output or root / 'delete.txt'
+        cmd_delete(root, output.resolve(), args.prev_ref)
 
 
 if __name__ == '__main__':

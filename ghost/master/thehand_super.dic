@@ -1,0 +1,148 @@
+//**************************************
+//	必殺技共通処理
+//	【呼出】
+//	【処理】
+//	【Global】
+//		ghosthwnd,ghostname
+//		colstring,g_Super1Count,g_Super1HitCount
+//		g_Super1SecondCount,g_odd,g_hitnum
+//**************************************
+
+StartSuperCommon{
+	//FMO読み出し
+	ghostname=''
+	ghosthwnd='0'
+	SHIORI3FW.RefreshFMOTable(fmoname)
+	if ARRAYSIZE(SHIORI3FW.SakuraNameList) ==0 {
+		g_Mode=0
+		OnNoGhostExist()
+		return
+	}
+
+	//ゴースト選択
+	ghosthwnd=SelectGhost(&ghostname)
+	if ghosthwnd=='0' {
+		g_Mode=0
+		OnNoGhostExist()
+		return
+	}
+
+	//当たり判定取得
+	GetCollision(ghosthwnd)
+	SaveGhostRect()
+	g_hitnum=ARRAYSIZE(colstring)
+}
+
+SuperCommon1{
+	//音を出してもいいかも？
+	//ここのサーフィスはアニメで白熱させる
+	'\t\f[color,255,0,0]\f[height,16]\f[bold,1]'
+	--
+	case ghostname {
+	when 'Emily' {
+		switch g_Shell {
+			'\v\1\s[10]\0\s[1000]デフォルトめ！\n触り反応とは何か教えてやる！'
+			'\v\1\s[10]\0\s[1000]でふぉるとさんでもようしゃしないです！'
+		}
+	}
+	when 'ヴィイ' {
+		switch g_Shell {
+			'\v\1\s[10]\0\s[1000]ヴィイ！\n今日はたっぷりと俺の味を教えてやるぜ！！'
+			'\v\1\s[10]\0\s[1000]ヴィイさん！\nこのおててのあじをしるがいいです！！'
+		}
+	} 
+	when 'オフィーリア' {
+		switch g_Shell {
+			'\v\1\s[10]\0\s[1000]教えてやろう…\w5存在のありかたの違いというものを'
+			'\v\1\s[10]\0\s[1000]おしえてやるです…\w5これはただのおててじゃないですよ！！'
+		}
+	} 
+	when 'エミット' , 'サトシ', 'カシス' {
+		switch g_Shell {
+			'\v\1\![set,scaling,20]\s[10]\0\![set,scaling,20]\s[1000]逃げても無駄だぜ…\w5奥義、\w5ガリバートンネル！'
+			'\v\1\![set,scaling,20]\s[10]\0\![set,scaling,20]\s[1000]にげてもだめなのですっ！\w5おうぎ、ちいさくなあれ！'
+		}
+	} 
+	when '伏儀' {
+		switch g_Shell {
+			'\v\1\s[10]\0\s[1000]目にもとまらぬこのテクニック！'
+			'\v\1\s[10]\0\s[1000]にひひ、\w5みえてないうちにくらうがいいです！'
+		}
+	}
+	when 'ジャスミン' {
+		switch g_Shell {
+			{
+			'\v\1\s[10]\0\s[1000]よしエンディ、\w5エネルギーチャージのチャンスだ！\w9\nジャスミン、\w5いい声で鳴け！'
+			'\v\1\s[10]\0\s[1000]エンディに弱いところは教わったぜ！\w9\nジャスミン、\w5覚悟しろ！'
+			'\v\1\s[10]\0\s[1000]エンディの為なら仕方ねえ！\w9\nジャスミン、\w5覚悟しろ！'
+			'\v\1\s[10]\0\s[1000]エンディとどっちが上手かな？\w9\nジャスミン、\w5覚悟しろ！'
+			}
+			{
+			'\v\1\s[10]\0\s[1000]エンディさんにはまけないのです！\w9\nかくごしろなのです！'
+			}
+		}
+	}
+	others {
+		switch g_Shell {
+			"\v\1\s[10]\0\s[1000]%(ghostname)よ、刮目して覚悟せよ！"
+			"\v\1\s[10]\0\s[1000]にひひ、%(ghostname)さん、かくごしなさいなのです！"
+		}
+	}
+	}
+	'\f[height,default]\f[bold,0]\f[color,default]'
+	--
+	SuperCommonPlaySound('sp1start.wav')
+}
+
+//相手の方に移動：_argv[0]はトーク
+SuperCommon2{
+	_talk=_argv[0]
+	_tox=0
+	_toy=0
+
+	if ghostname == '54' {
+		//相手の矩形取得、ここで逃げるゴースト
+		g_TargetMoved=GetAndCheckGhostRect(ghosthwnd)
+		_tox=(g_oldright-g_oldleft)/2+g_oldleft
+		_toy=(g_oldbottom-g_oldtop)/2+g_oldtop
+	}else{
+		//途中で逃げるゴースト
+		g_TargetMoved='0'
+		GetGhostRect(ghosthwnd)
+		SaveGhostRect()
+		_tox=(g_right-g_left)/2+g_left
+		_toy=(g_bottom-g_top)/2+g_top
+	}
+
+	//ここですーっと相手の方に移動
+	'\c\t\f[color,255,0,0]\f[height,16]\f[bold,1]'
+	--
+	"\v\0%(_talk)\1\![move,%(_tox),%(_toy),1000,screen,left.top,base.base]\0\![move,%(_tox),%(_toy),1000,screen,left.top,base.base]"
+	--
+	'\f[height,default]\f[bold,0]\f[color,default]'
+	--
+}
+
+SuperCommonTalk:nonoverlap{
+	switch g_Shell {
+		{
+		'天が呼ぶ地が呼ぶ人が呼ぶ！\n今必殺の！'
+		'みんな！オラに元気をわけてくれ！！\n'
+		'考えるんじゃない！感じるんだ！\n'
+		'見える…マトリックスが感じられる！\n'
+		}
+		{
+		'てんがよぶ、\w5ちがよぶ！\nひっさつの！'
+		'みんな！わたしにげんきをわけるです！！\n'
+		'かんがえるんじゃないです！かんじるです！\n'
+		'みえるです…まとりっくすがかんじられるです！\n'
+		}
+	}
+//	'拘束制御術式\w93号\w52号\w51号\w9開放\w9\n状況A「フレミング」発動による承認\w9認識\w9\n目前ゴーストの完全攻略までの間\w9\n能力使用限定解除\w9開始\n'
+}
+
+SuperCommonPlaySound:void{
+	_result=FUNCTIONEX('mciaudior.dll','stop')
+	_result=FUNCTIONEX('mciaudior.dll','load','sound/'+_argv[0])
+	_result=FUNCTIONEX('mciaudior.dll','play')
+}

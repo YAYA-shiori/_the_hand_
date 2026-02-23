@@ -1,0 +1,146 @@
+//**************************************
+//	DoSuper3Event	対ヴィイ必殺技１
+//	【呼出】
+//		OnSecondChange->DoSuper3Event
+//	【処理】
+//	【Global】
+//		ghosthwnd,ghostname,colstring
+//		
+//**************************************
+StartSuper3 {
+	SendHandActivate(ghosthwnd,'SuperStart','3','')
+	g_Mode=4
+	g_SecondCallFunc=""
+	PutEB('\c\_q:: Deus Ex Machina :: \nconverting layer\_q.\w9.\w9.\w9.\w9done.\n\_qscanning logos :\_q\w5\_q target "vii"\_q\n\_q12%\_q\w3\b3\_q23%\_q\w3\b3\_q36%\_q\w3\b3\_q52%\_q\w3\b3\_q78%\_q\w3\b3\_q100%\_q\b4\n\_qlogolization completed.\_q')
+	--
+	'\![raise,OnSuper3State0]'
+	--
+}
+
+
+OnSuper3State0{
+	switch g_Shell {
+	'\v\1\s[10]\0\s[1000]\![raise,OnSuper3LineStart]レイヤー変換開始。\w9\n\w9\n言語が思考を紡ぎ、\w5言語が感覚を支配し、\w5言語が世界を構築する。\w9\n俺は言語であり、ヴィイに浸透し、\w5ヴィイに干渉し、\w5ヴィイの感覚を直接支配する。\w9\n\w9\n\f[color,255,0,0]\f[height,16]\f[bold,1]逆らう術など無いと知れッ！！\w9\n超奥義、\w5デウス・エクス・マキナッ！！\f[height,default]\f[bold,0]\f[color,default]\![raise,OnSuper3LineEnd]'
+	'\v\1\s[10]\0\s[1000]\![raise,OnSuper3LineStart]\w9\w9\w9\![raise,OnVoice,special3.mp3]れいやーへんかんかいしです。\w9\n\w9\nことばがしこうをつむぎ、\w5ことばがかんかくをしはいし、\w5えーと…\w5\w5その、\w5ことばが…\w9\w9\w9\w9\n\w9\n\f[color,255,0,0]\f[height,16]\f[bold,1]わすれたですっ！！\w9\nとにかく、\w5ちょうおうぎなのですっ！！\w9\w9\w9\w9\w9\w9\w9\w9\w9\w9\f[height,default]\f[bold,0]\f[color,default]\![raise,OnSuper3LineEnd]:eval=(g_voicename="special3.mp3")'
+	}
+	SuperCommonPlaySound('sp1start.wav')
+	_result=FUNCTIONEX('scribble.dll','color','0','255','0')
+	_result=FUNCTIONEX('scribble.dll','pen_width','1')
+	g_super3max=ARRAYSIZE(colstring)
+}
+
+OnSuper3LineStart{
+	//自分の位置取得
+	_result=FUNCTIONEX('handutil.dll','GetRect',sakurahwnd,'rect')
+	_myleft=valueex4
+	_mytop=valueex5
+	_myright=valueex6
+	_mybottom=valueex7
+	//CVINT(_myleft)
+	//CVINT(_mytop)
+	//CVINT(_myright)
+	//CVINT(_mybottom)
+	g_myx=_myleft+50
+	g_myy=_mytop+50
+
+	g_super3wait=0
+	_dx=0
+	_dy=0
+	_x=0
+	_y=0
+	for _i=0 ; _i<g_super3max ; _i++ {
+		//当たり判定矩形取得
+		_col=colstring[_i]
+		if _col == '' {
+			return
+		}
+		_left  =_col[1];CVINT(_left);
+		_top   =_col[2];CVINT(_top);
+		_right =_col[3];CVINT(_right);
+		_bottom=_col[4];CVINT(_bottom);
+		_x=g_left +(_right-_left)/2+_left
+		_y=g_top  +(_bottom-_top)/2+ _top
+		_dx=_x+RAND(300)-150
+		_dy=_y+RAND(300)-150
+		_result=FUNCTIONEX('scribble.dll','line',g_myx,g_myy,_dx,_dy,_x,_y)
+		_result=FUNCTIONEX('scribble.dll','ellipse',g_left+_left,g_top+_top,g_left+_right,g_top+_bottom)
+	}
+}
+
+OnSuper3LineEnd{
+	--
+	'\![raise,OnSuper3State2]'
+	--
+}
+
+OnSuper3State2{
+	_result=FUNCTIONEX('scribble.dll','clear')
+	g_super3count=RAND(10)+5
+	_result=FUNCTIONEX('mciaudior.dll','load','sound/sp3continue.wav')
+	--
+	'\![raise,OnSuper3State3]'
+	--
+}
+
+OnSuper3State3{
+	g_SecondCallFunc="OnSuper3State3"
+	SendHandActivate(ghosthwnd,'SuperContinue','3',g_super3count)
+	_result=FUNCTIONEX('mciaudior.dll','play')
+	_surface=Super3Dengeki()
+	"\v\0\![move,%(g_left),%(g_top),0,screen,left.top,left.top]\s[%(_surface)]"
+	g_super3count--
+	if g_super3count < 0 {
+		--
+		'\![raise,OnSuper3State4]'
+		--
+	}
+}
+
+Super3Dengeki : nonoverlap {
+	'1100'
+	'1101'
+	'1102'
+}
+
+
+OnSuper3State4{
+	g_SecondCallFunc=""
+	//相手の矩形取得
+	_result=FUNCTIONEX('handutil.dll','GetRect',ghosthwnd,'rect')
+	_left=valueex4
+	_top=valueex5
+	_right=valueex6
+	_bottom=valueex7
+	//CVINT(_left)
+	//CVINT(_top)
+	//CVINT(_right)
+	//CVINT(_bottom)
+	_tox=(_right-_left)/2+_left
+	_toy=(_bottom-_top)/2+_top
+
+	//相手の上に移動
+	"\t\v\0\s[1005]\![move,%(_tox),%(_toy),0,screen,left.top,base.base]"
+	SuperCommonPlaySound('sp2end.wav')
+	_result=SendHandActivate(ghosthwnd,'SuperEnd','3')
+	g_super3wait=0
+	--
+	'\![raise,OnSuper3State5]'
+	--
+}
+
+OnSuper3State5{
+	g_SecondCallFunc="OnSuper3State5"
+	g_super3wait++
+	if g_super3wait < 5 {
+		return
+	}
+	g_Mode=0
+	Super3End()
+	'\t\v\1\s[10]\0\s[0]'
+}
+
+
+Super3End : void {
+	g_SecondCallFunc=""
+	PowerUp(-g_power)
+}

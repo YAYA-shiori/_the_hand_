@@ -1,0 +1,375 @@
+//*****************************************************************************
+// The Hand イベント処理辞書
+// written by ukiya.
+// template by umeici.
+//*****************************************************************************
+
+//*****************************************************************************
+//	OnSecondChange モードによって処理を振り分ける
+//	g_Mode	0	通常
+//			1	標準触り中
+//			2	必殺技１
+//			3	必殺技２
+//			4	必殺技３：対ヴィイ
+//			5	必殺技４
+//			100	特別トーク：viiandhand-1
+//*****************************************************************************
+OnSecondChange{
+	case g_Mode{
+	when 1 {
+		DoNormalEvent()
+	}
+	when 2,3,4,5 {
+		if g_SecondCallFunc!="" {
+			EVAL("%(g_SecondCallFunc)()")
+		}
+	}
+	when 100 {
+		//なにもしない
+	}
+	others {
+		if reference[1] == 1 {
+			CVINT(g_MikireSecond)
+			g_MikireSecond++
+		}
+		if g_MikireSecond >= 10 {
+			MikireTalk()
+		}
+	}
+	}
+}
+
+//---- 見切れ中 -------------------------------------------------------------------------
+MikireTalk
+{
+	//画面内に舞い戻る
+	g_MikireSecond=0
+	switch g_Shell {
+		'\t\v\1\s[10]\0\s[7]\![move,-100,-100,1000,screen,right.bottom,base.base]俺様のビューテホーな姿を隠すとはどういう了見だ？\e'
+		'\t\v\1\s[10]\0\s[605]みきれてるのですーっ！\e'
+	}
+}
+
+//*****************************************************************************
+//	キーボード、マウスイベント
+//*****************************************************************************
+OnKeyPress{
+	CVSTR(reference[0])
+	case reference[0] {
+	when 'r' {
+		if g_Mode != 0 { return }
+		if CHAIN.IDName == '' {
+			RandomTalk()
+		} else {
+			ChainTalk()
+		}
+	}
+	when 'c' {
+		if g_Mode != 0 { return }
+		StartCommunicate()
+	}
+	when 'm' {
+		if g_Mode != 0 { return }
+		ShowMenu()
+	}
+	when 'x' {
+		if g_Mode != 0 { return }
+		StartSuperCommon()
+		if ghostname != 'ヴィイ' {
+			_funcname=ANY(('StartSuper1()','StartSuper2()','StartSuper4()'))
+			OnSuperKeyPress(_funcname)
+		}else{
+			_funcname=ANY(('StartSuper1()','StartSuper2()','StartSuper3()','StartSuper4()'))
+			OnSuperKeyPress(_funcname)
+		}
+	}
+	when '1' {
+		if g_Mode != 0 { return }
+		StartSuperCommon()
+		OnSuperKeyPress('StartSuper1()')
+	}
+	when '2' {
+		if g_Mode != 0 { return }
+		StartSuperCommon()
+		OnSuperKeyPress('StartSuper2()')
+	}
+	when '3' {
+		if g_Mode != 0 { return }
+		StartSuperCommon()
+		if ghostname != 'ヴィイ' {
+			_funcname=ANY(('StartSuper1()','StartSuper2()'))
+			OnSuperKeyPress(_funcname)
+		}else{
+			OnSuperKeyPress('StartSuper3()')
+		}
+	}
+	when '4' {
+		if g_Mode != 0 { return }
+		StartSuperCommon()
+		OnSuperKeyPress('StartSuper4()')
+	}
+	when 'd'{
+		OnKeyDebug()//デバッグ用
+	}
+	when 's'{
+		StopNormal()
+	}
+	when 'up','down','left','right' {
+		if g_keycombo == 1{
+			OnArrowKeyPress(reference[0])
+		}
+	}
+	}
+}
+
+OnSuperKeyPress{
+	_funcname=_argv[0]
+	if g_power == 100 {
+		if ghostname != ''{
+			EVAL(_funcname)
+		}else{
+			PutEB('\n\_qError - No Target!\_q')
+		}
+	}else{
+		PowerUp(0)
+		PutEB('\n\_qError - Power empty!\_q')
+	}
+}
+
+StopNormal{
+	if g_Mode == 1{
+		g_Mode=0
+		NormalEnd()
+	}
+}
+
+OnKeyDebug{
+	PowerUp(100)
+}
+
+//*****************************************************************************
+//	Hand 固有イベント
+//*****************************************************************************
+
+//同時に立ってるゴーストが居ない
+OnNoGhostExist{
+	switch g_Shell {
+		'\1\s[10]\0\s[4]触れる奴がいねえじゃねえか！\e'
+		'\1\s[10]\0\s[605]さわれるゴーストさんがいないのです！\e'
+}
+}
+
+//当たり判定位置取得失敗
+OnCollisionFailed{
+	switch g_Shell {
+		"\1\s[10]\0\s[4]%(ghostname)のどこを触っていいか分からんぜ！\e"
+		"\1\s[10]\0\s[605]%(ghostname)のどこをさわっていいかわからないのです！\e"
+	}
+}
+
+//このゴーストは「触らない」
+//argv0に「触らない」トークが入る
+OnDontEvent{
+	"\1\s[10]\0\s[4]%(ghostname)は・・・。\n%(_argv[0])\n\e"
+}
+
+//触ってるうちに居なくなった（しゃべる中身のみ記述）
+OnTargetEscaped{
+	switch g_Shell {
+		'ち、逃げやがった！'
+		'にげられたのです！'
+	}
+}
+
+//触ってるうちに矩形が変わった（しゃべる中身のみ記述）
+OnTargetChanged{
+	switch g_Shell {
+		'なんだよ、動くと触りにくいじゃないか。'
+		'うごいちゃだめです！'
+	}
+}
+
+//*****************************************************************************
+//	起動、終了
+//*****************************************************************************
+OnFirstBoot{
+	'\t\v\1\s[10]\0\s[0]おう。俺を呼び出したからにはこの世の全てを触りまくってやるぜ。/
+	\w9\nあー、ちなみに、触る相手は SSP じゃないとダメだ。/
+	\w9\nそれから、ダブルクリックするとすぐ触りはじめて、sキーですぐ止めるからな。/
+	\w9\nついでに、Rを押すと適当に喋るし、Cを押すと適当に会話するぞ。/
+	\w9\nMでメニュー、Xはお楽しみってやつだ。/
+	\w9\nさあ、触りまくるぞ。期待してくれ。/
+	\e'
+}
+
+
+OnBoot
+{
+	g_Shell=GetShell(reference[0])
+	switch g_Shell{
+		{
+		'\v\1\s[10]\0\s[0]さあ祭りの始まりだ。\e'
+		'\v\1\s[10]\0\s[7]Handは触り\w9\nHandは揉み\w9\nHandは\w9　Handは君臨する\e'
+		}
+		{
+		'\v\1\s[10]\0\s[0]さあ、\w5おまつりのはじまりなのです！\e'
+		'\v\1\s[10]\0\s[0]はんどはさわり\w9\nはんどはもみ\w9\nはんどは\w9　はんどはくんりんするのです！\e'
+		}
+	}
+}
+
+FirstInitialize{
+	aitalkinterval = 60
+	g_power=0
+	PutEB(BootTalk())
+}
+
+BootTalk : nonoverlap {
+'\c\_qRequiem aeternam dona eis, Domine,\net lux perpetua luceat eis.\nTe decet hymnus, Deus, in Sion,\net tibi reddetur votum in Jerusalem\nExaudi orationem meam,\nad te omnis caro veniet.\_q'
+'\c\_qKyrie eleison. \nChriste eleison.\nKyrie eleison.\_q'
+'\c\_qDies irae, dies illa\nsolvet saeclum in favilla:\nteste David cum Sibylla\nQuantus tremor est futurus,\nquando judex est venturus,\ncuncta stricte discussurus.\_q'
+'\c\_qRex tremendae majestatis,\nqui salvandos salvas gratis,\nsalva me, fons pietatis.\_q'
+'\c\_qConfutatis maledictis,\nflammis acribus addictis,\nvoca me cum benedictis.\n\nOro supplex et acclinis,\ncor contritum quasi cinis:\ngere curam mei finis.\_q'
+'\c\_qAgnus Dei,qui tollis peccata mundi:\ndona eis requiem.\nAgnus Dei,qui tollis peccata mundi:\ndona eis requiem sempiternam.\_q'
+}
+
+
+
+OnClose
+{
+	switch g_Shell {
+		'\v\1\s[10]\0\s[0]なんだ、もう終わりかよ。\-\e'
+		'\v\1\s[10]\0\s[605]もっとゴーストさんをさわるですーっ！\-\e'
+	}
+}
+
+OnGhostLoad{
+	Initialize()
+	FirstInitialize()
+	studytable=''
+	comtable  =''
+}
+
+OnCacheSuspend{
+	SHIORI3FW.SaoriUnloadAll
+}
+
+OnCacheRestore{
+	OnGhostLoad()
+}
+
+OnGhostUnload
+{
+	SHIORI3FW.SaoriUnloadAll
+	_savevarname=('fmoname','g_Shell','g_Sound')
+
+	_varnames=GETVARLIST()
+	foreach _varnames ; _varname {
+		if ASEARCH(_varname,_savevarname) == -1 {
+			ERASEVAR(_varname)
+		}
+	}
+}
+
+OnShellChanged{
+	g_Shell=GetShell(reference[0])
+	comtable=''
+	studytable=''
+}
+
+//*****************************************************************************
+//	ねとわく
+//*****************************************************************************
+
+//ネットワーク更新開始
+OnUpdateBegin
+{
+	on_bust=0
+	switch g_Shell {
+		'\v\1\s[10]\0\s[0]新たなテクニックを習得するぜ。\e'
+		'\v\1\s[10]\0\s[0]あらたなてくにっくをしゅうとくなのです。\e'
+	}
+}
+
+//ネットワーク更新準備完了
+OnUpdateReady
+{
+	reference[0] += 1
+	switch g_Shell {
+		"\v\1\s[10]\0\s[0]%(reference[0])個のテクニックを習得したぜ。\e"
+		"\v\1\s[10]\0\s[0]%(reference[0])このてくにっくがわかったのです。\e"
+	}
+}
+
+//ネットワーク更新終了
+OnUpdateComplete
+{
+	if reference[0] == 'none'
+	{
+		switch g_Shell {
+			'\v\1\s[10]\0\s[0]もう学ぶべきテクニックは無いな。\e'
+			'\v\1\s[10]\0\s[0]もうじゅうぶんてくにしゃん！\w5なのです！\e'
+		}
+	}
+	else
+	{
+		//---- 実際に更新が完了した
+		switch g_Shell {
+			'\v\1\s[10]\0\s[0]ＯＫ、みんな揉みまくってやるぜ。\e'
+			'\v\1\s[10]\0\s[0]ぱわーあっぷしたこのおててで、\w5ゴーストさんのちちをですね…\e'
+		}
+	}
+}
+
+//ネットワーク更新失敗
+OnUpdateFailure
+{
+	if reference[0] == 'timeout'
+	{
+		//---- タイムアウトした
+		switch g_Shell {
+			'\v\1\s[10]\0\s[0]ち、タイムアウトか。\e'
+			'\v\1\s[10]\0\s[0]たいむあうとなのです…\e'
+		}
+	}
+	elseif reference[0] == 'md5 miss'
+	{
+		//---- MD5値が一致しなかった
+		switch g_Shell {
+			'\v\1\s[10]\0\s[0]ち、MD5不一致か。\e'
+			'\v\1\s[10]\0\s[0]えむでぃーごが…\w5よくわかんないです。\e'
+		}
+	}
+	else
+	{
+		//---- 上記以外の理由で失敗した
+		switch g_Shell {
+			"\v\1\s[10]\0\s[0]ち、失敗か。\w9\n%reference[0]らしいぞ。\e"
+			"\v\1\s[10]\0\s[0]えっと、しっぱいしたです。\w9\n%reference[0]だそうなのです…\e"
+		}
+	}
+}
+
+//ネットワーク更新 ダウンロード開始
+OnUpdate.OnDownloadBegin
+{
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[0]%reference[0]のテクニックを身につけるぜ。\e"
+		"\t\v\1\s[10]\0\s[0]%reference[0]のてくにっくで、ゴーストさんのちちをですね…\e"
+	}
+}
+
+//ネットワーク更新 MD5値照合開始
+OnUpdate.OnMD5CompareBegin
+{
+}
+
+//ネットワーク更新 MD5値一致
+OnUpdate.OnMD5CompareComplete
+{
+}
+
+//ネットワーク更新 MD5値不一致
+OnUpdate.OnMD5CompareFailure
+{
+}

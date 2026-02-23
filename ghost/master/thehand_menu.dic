@@ -1,0 +1,112 @@
+//*****************************************************************************
+// The Hand メニュー処理辞書
+// written by ukiya.
+// template by umeici.
+//*****************************************************************************
+
+OnChoiceSelect
+{
+	EVAL(reference[0])
+}	
+
+ShowMenu{
+	_outstr=''
+	if g_Shell == 1 {
+		_outstr="\t\v\1\s[10]\0\s[0]\_qなにがしたいですか？\n\q[■喋り頻度変更,menu_talkratio]\n\q[■ＦＭＯ名称変更（現在:%(fmoname)）,menu_chgfmoname]\n"
+	}else{
+		_outstr="\t\v\1\s[10]\0\s[1]\_qおう、何がしたいんだ？\n\q[■喋り頻度変更,menu_talkratio]\n\q[■ＦＭＯ名称変更（現在:%(fmoname)）,menu_chgfmoname]\n"
+	}
+	
+	if g_Shell == 1{
+		_outstr+="\q[■音声のON/OFF,menu_chgsoundonoff]\n"
+	}
+	
+	if SHIORI3FW.IsGhostExist('ヴィイ') != 0 && g_Shell==0 {
+		_outstr+='\q[■ヴィイと話す,menu_sptalk_vii]\n'
+	}
+	_outstr+='\q[■キャンセル,CANCEL]\_q\e'
+	
+	_outstr
+}
+
+menu_chgsoundonoff{
+	if g_Sound == 0 {
+		"\t\v\1\s[10]\0\s[605]わたしのびせいにようがいいです！\e"
+		g_Sound=1
+	}else{
+		"\t\v\1\s[10]\0\s[0]しかたないのでだまってるです…\e"
+		g_Sound=0
+	}
+}
+
+menu_sptalk_vii{
+	'\t\v\1\s[10]\0\s[1]\_q何の話をするんだ？\n/
+	\q[■ヴィイが何か元気ねえな…,menu_sptalk_vii_1]\n/
+	\_q\e'
+}
+
+menu_sptalk_vii_1{
+	reference[0]='ヴィイ' //ghostname
+	reference[1]='ダミー'
+	reference[2]='viiandhand-1'
+	reference[3]=1
+	SPCOM_viiandhand1()
+}
+
+menu_talkratio{
+	if g_Shell == 1 {
+		"\t\v\1\s[10]\0\s[0]どれくらいしゃべるですか？\n\n\_q/
+		\q[■びょーてひょーに,menu_talkratio_max]\n/
+		\q[■あばうとに,menu_talkratio_normal]\n/
+		\q[■だまってむねをもむです！,menu_talkratio_min]\n/
+		\q[■キャンセル,CANCEL]\n/
+		\_q\e"
+	}else{
+		"\t\v\1\s[10]\0\s[1]どれくらい喋ればいいんだ？\n\n\_q/
+		\q[■ビューテホーに,menu_talkratio_max]\n/
+		\q[■アバウトに,menu_talkratio_normal]\n/
+		\q[■男は黙って胸を揉め,menu_talkratio_min]\n/
+		\q[■キャンセル,CANCEL]\n/
+		\_q\e"
+	}
+}
+
+menu_talkratio_max{
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[7]俺のエクセレントセクシーなトークに酔うがいいぜ。\e"
+		"\t\v\1\s[10]\0\s[605]わたしの、\w5えくせれんとせくしーなとーくに、\w5めろめろになるがいいです！\e"
+	}
+	aitalkinterval = 10
+}
+
+menu_talkratio_normal{
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[0]おう、何事も程度ってもんが肝心だよな。\e"
+		"\t\v\1\s[10]\0\s[0]\![raise,OnVoice,nanigotomo.mp3]なにごとも、\w5ていどがかんじんなのです。"
+	}
+	aitalkinterval = 60
+}
+
+menu_talkratio_min{
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[4]分かってるじゃねえか。\n大切なのは行動だよな。\e"
+		"\t\v\1\s[10]\0\s[0]わかったです。\nだまってむねをもむです。\e"
+	}
+	aitalkinterval = 120
+}
+
+menu_chgfmoname{
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[0]おう、見に行くFMOを変えるんだが、分からん奴はSakuraか空白のままにしてくれ。\w9\n\![open,inputbox,On_menu_chgfmoname,30000]\e"
+		"\t\v\1\s[10]\0\s[0]みにいくえすえむ…\w5え、\w5\s[605]えふえむおーですっ！\![open,inputbox,On_menu_chgfmoname,30000]\e"
+	}
+}
+
+On_menu_chgfmoname{
+	fmoname=reference[0]
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[1]分かった、FMO「%(fmoname)」を見にいくぜ。\e"
+		"\t\v\1\s[10]\0\s[0]「%(fmoname)」をみてさわるです。\e"
+	}
+}
+

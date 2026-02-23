@@ -1,0 +1,13 @@
+name,The Hand
+type,ghost
+
+sakura.name,Hand
+kero.name,Dummy
+
+sstp.allowunspecifiedsend,1
+
+icon,thehand.ico
+
+default.balloon.path,minbal
+
+shiori,yaya.dll

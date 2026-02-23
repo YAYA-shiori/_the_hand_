@@ -1,0 +1,7 @@
+charset,UTF-8
+name,デフォルト
+id,master
+type,shell
+craftman,ukiya
+carftmanurl,http://ukiya.sakura.ne.jp/
+seriko.alignmenttodesktop,free

@@ -1,0 +1,52 @@
+//******************************************************************************
+// 文　ゴーストテンプレート
+// yaya.txt (設定ファイル)
+// original written by umeici.
+// change by yaya develop team.
+//******************************************************************************
+
+charset,UTF-8
+
+//------------------------------------------------------------------------------
+//システム辞書
+//------------------------------------------------------------------------------
+dic, yaya_config.dic		// YAYA:設定辞書。必ず最初に指定すること。
+
+dic, system/yaya_shiori3.dic	// YAYA:システム辞書
+dic, system/yaya_optional.dic	// YAYA:オプション機能群用辞書
+//dic, system/yaya_compatible.dic	// YAYA:AYA過去互換用辞書
+
+//------------------------------------------------------------------------------
+//Handゴースト辞書
+//------------------------------------------------------------------------------
+dic, thehand_string.dic
+dic, thehand_core.dic
+dic, thehand_event.dic
+dic, thehand_table.dic
+dic, thehand_talk.dic
+dic, thehand_menu.dic
+dic, thehand_com.dic
+dic, thehand_mouse.dic
+dic, thehand_super.dic
+dic, thehand_super1.dic
+dic, thehand_super2.dic
+dic, thehand_super3.dic
+dic, thehand_super4.dic
+
+//------------------------------------------------------------------------------
+//実行ログ
+//実行ログをayame.logに記録します。開発時には記録しておいたほうが良いです。
+//------------------------------------------------------------------------------
+//log, hand.log	
+ignoreiolog, ID: OnSecondChange //OnSecondChange無視
+ignoreiolog, ID: OnMouse        //OnMouse系無視
+
+//------------------------------------------------------------------------------
+//セーブファイル暗号化
+// onにするとセーブファイルを暗号化します。
+// 【注意】一度onにするとoffにしてもセーブファイルを削除するまで
+// 暗号化のままになります！
+//------------------------------------------------------------------------------
+// save.encode,on
+
+

@@ -1,0 +1,6 @@
+charset,UTF-8
+type,ghost
+name,The Hand
+directory,_the_hand_
+balloon.directory,minbal
+refresh,1

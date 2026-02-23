@@ -1,0 +1,508 @@
+//*****************************************************************************
+// The Hand コミュニケート辞書
+// written by ukiya.
+// template by umeici.
+//*****************************************************************************
+
+//**************************************
+//	RefreshComTable
+//	【呼出】
+//		StartCommunicate,ReplyToGhost
+//	【引数】
+//		argv[0]	コミュニケーションタイプ
+//	【戻値】
+//		,区切りテーブル
+//	【処理】
+//		comtableを元にヒットしたテーブルを生成
+//**************************************
+RefreshComTable{
+	//comtable初期化
+	SetComTable()
+	
+	_table=''
+	_special=''
+	_stopsuper=''
+	
+	//ゴースト特有の反応
+	_len=ARRAYSIZE(comtable)
+	_ghostname=''
+	
+	_ghosthit=0
+	_kwhit=0
+	
+	for _i=0 ; _i < _len ; _i++ {
+		_ghostname=comtable[_i][0,'|']
+		_kw=comtable[_i][1,'|']
+		_type=comtable[_i][2,'|']
+		_string=comtable[_i][3,'|']
+		_special=comtable[_i][4,'|']
+		_stopsuper=comtable[_i][5,'|']
+		_argv[1]=_special
+		_argv[2]=_stopsuper
+		if  _argv[0] _in_ _type {
+			//タイプヒット
+			if reference[0] _in_ _ghostname  || _ghostname == '*' || (_ghostname == '**' && _ghosthit==0) {
+				//ゴーストヒット
+				if _ghostname != '*' && _ghostname != '**' {
+					_ghosthit=1
+				}
+				if _kw == '*' || _kw == '***' || _kw _in_ reference[1] || (_kw=='**' && _kwhit==0) {
+					//キーワードヒット
+					if _kw != '*' && _kw != '**' && _kw != '***' {
+						_kwhit=1
+					}
+					if _table == '' {
+						_table=_string
+					}else{
+						if _kw == '***' && RAND(4)!=0 {
+							continue // 他に候補がある場合は＊＊＊は２５％でしかヒットさせない
+						}
+						_table=_table+','+_string
+					}
+					//特殊
+					if _special == '!' || _special == '!!!' {
+						_table // ここで打ち止め
+						return
+					}
+					if _special == '!!' {
+						_string // これのみヒット
+						return
+					}
+				}
+			}
+		}
+	}
+	
+	_table
+	return
+}
+
+
+//**************************************
+//	StartCommunicate
+//	【呼出】
+//		OnAiTalk,OnKeyPress
+//	【処理】
+//		こちらから話しかける
+//**************************************
+StartCommunicate
+{
+	//---- まず話しかける相手を決める
+	res_reference0=''
+	SHIORI3FW.RefreshFMOTable(fmoname)
+	if ARRAYSIZE(SHIORI3FW.SakuraNameList) != 0
+	{
+		_result=SelectGhost(&res_reference0);
+		reference[0]=res_reference0
+		reference[1]=''
+		res_reference1 = ''
+		if res_reference0 == 'Hand' {
+			res_reference0=''
+			return
+		}
+		
+		comghostname=res_reference0
+		_res=ANY(RefreshComTable('o'))
+		EVAL(CHR(0x22)+_res+CHR(0x22))
+	}else{
+		switch g_Shell {
+			'\v\1\s[10]\0\s[7]なんだ、誰もいねえじゃねえか。\e'
+			'\v\1\s[10]\0\s[605]だれもいないですーっ！！\e'
+		}
+	}
+}
+
+
+//**************************************
+//	OnCommunicate,ReplyToGhost
+//	【呼出】
+//		OnCommunicate->ReplyToGhost
+//	【処理】
+//		話しかけられたので返事する
+//**************************************
+OnCommunicate
+{
+	if reference[0] == 'user' || reference[0] == 'User' {
+		switch g_Shell {
+			'\t\v\1\s[10]\0\s[7]うるせえ、今お楽しみ中なんだ。\e'
+			'\v\1\s[10]\0\s[0]にひひ、ゆーざさんもさわってほしいですか？\e'
+		}
+	}else{
+		case reference[2] {
+			when 'viiandhand-1' {
+				SPCOM_viiandhand1();
+			}
+			when 'Lyraina_Hand_1'{
+				SPCOM_Lyraina_Hand_1();
+			}
+			others{
+				//---- ゴーストからの話しかけ
+				ReplyToGhost();
+			}
+		}
+	}
+}
+
+ReplyToGhost
+{
+	comghostname=reference[0]
+
+	if g_Mode > 1 && reference[0] != ghostname  {
+		//必殺技中は対象者のコミュにしか反応しない
+		return
+	}
+
+	// 話しかけてきた相手に返事
+	_special=''
+	_stopsuper=''
+	_res=ANY(RefreshComTable('i',&_special,&_stopsuper))
+	_talk=EVAL(CHR(0x22)+_res+CHR(0x22))
+
+	//g_Mode=0
+	
+	if _stopsuper!='@' && g_Mode!=0 {
+		//必殺技中は@付きのトークしか反応しない
+		return
+	}
+
+	if g_Mode == 0 {
+		//必殺技以外の場合は話しかける
+		res_reference0 = reference[0]
+	}
+	
+	if (_special != '!!' && _special != '!!!')  && ( (_talk == g_oldtalk && comghostname == g_oldghostname && RAND(10)>0) ||  RAND(10)>7 ) {
+		//同じ相手に同じ台詞を喋ろうとした場合は90%、そうでない場合は20%の確立で会話中断
+		//（無限ループ防止）
+		res_reference0 = ''
+		res_reference1 = ''
+		g_oldtalk=''
+		g_oldghostname=''
+		ReplyStop()
+	}else{
+		_talk
+		g_oldtalk=_talk
+		g_oldghostname=comghostname
+	}
+	//コミュニケートでパワー上昇
+	PowerUp(15)
+}
+
+ReplyStop{
+	switch g_Shell {
+		"\t\v\1\s[10]\0\s[7]けっ、\w5%(comghostname)が何か言ってやがるぜ。\e"
+		"\t\v\1\s[10]\0\s[605]%(comghostname)さんのいうことはわからないですー！\e"
+	}
+}
+
+//**************************************
+//	切替系
+//**************************************
+
+//他のゴーストに切り替えた
+OnGhostChanging
+{
+	Initialize()
+	comghostname=reference[0]
+	_res=ANY(RefreshComTable('t'))
+	EVAL(CHR(0x22)+_res+CHR(0x22))
+}
+
+//他のゴーストから切り替わった
+OnGhostChanged
+{
+	Initialize()
+	FirstInitialize()
+	comghostname=reference[0]
+	_res=ANY(RefreshComTable('f'))
+	EVAL(CHR(0x22)+_res+CHR(0x22))
+}
+
+//他のゴーストを呼んだ
+OnGhostCalling
+{
+	comghostname=reference[0]
+	_res=ANY(RefreshComTable('+'))
+	EVAL(CHR(0x22)+_res+CHR(0x22))
+}
+
+//自分が呼んだゴーストが起動した−OnOhterGhostBooted代替
+OnGhostCallComplete
+{
+	OnOtherGhostBooted()
+}
+
+//他のゴーストが起動した
+OnOtherGhostBooted
+{
+	comghostname=reference[0]
+	_res=ANY(RefreshComTable('b'))
+	EVAL(CHR(0x22)+_res+CHR(0x22))
+}
+
+//他のゴーストが閉じた
+OnOtherGhostClosed
+{
+	comghostname=reference[0]
+	_res=ANY(RefreshComTable('c'))
+	EVAL(CHR(0x22)+_res+CHR(0x22))
+}
+
+//他のゴーストから呼ばれた−OnBoot代替
+OnGhostCalled
+{
+	Initialize()
+	FirstInitialize()
+	comghostname=reference[0]
+	_res=ANY(RefreshComTable('d'))
+	EVAL(CHR(0x22)+_res+CHR(0x22))
+}
+
+//**************************************
+//	特殊反応
+//**************************************
+OnAttackedFromVii : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qLogos intervention detected.\_q\w9\n\_qFrom: "vii"\_q\n\n\_qMaterialized level : \_q3\w5\b2 2\w5\b2 1\w5\b2 0\w9\n\_qMaterialize stopped.\_q')
+}
+
+OnAttackedFromSiren1 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qExistence intervention detected.\_q\w9\n\_qFrom: "siren"\_q\n\n\_qMaterialized level : \_q3\w5\b2 2\w5\b2 1\w5\b2 0\w9\n\_qMaterialize stopped.\_q')
+}
+
+OnAttackedFromSiren2 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qExistence intervention detected.\_q\w9\n\_qFrom: "siren"\_q\n\n\w9\w9\_qMaterialize override.\_q\w9\n\_q\nAttack Stopped.\_q')
+}
+
+OnAttackedFromOF1 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qDecreasing temperature detected.\_q\w9\n\_qFrom: "Ophelia"\_q\n\n\_qMaterialized level : \_q3\w5\b2 2\w5\b2 1\w5\b2 0\w9\n\_qMaterialize stopped.\_q')
+}
+
+OnAttackedFromOF2 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qDecreasing temperature detected.\_q\w9\n\_qFrom: "Ophelia"\_q\n\n\w9\w9\_qForce-Materialize start.\_q\w9\n\_q\nAttack Stopped.\_q')
+}
+
+OnAttackedFromLee1 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qAttack in Power-Word detected.\_q\w9\n\_qFrom: "Lyraina"\_q\n\n\_qMaterialized level : \_q3\w5\b2 2\w5\b2 1\w5\b2 0\w9\n\_qMaterialize stopped.\_q')
+}
+
+OnAttackedFromLee2 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qAttack in Power-Word detected.\_q\w9\n\_qFrom: "Lyraina"\_q\n\n\w9\w9\_qForce-Materialize start.\_q\w9\n\_q\nAttack Stopped.\_q')
+}
+
+OnAttackedFromEri1 : void {
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qExistence intervention detected.\_q\w9\n\_qFrom: "REIKI"\_q\n\n\w9\w9\_qMaterialize override.\_q\w9\n\_q\nAttack Stopped.\_q')
+}
+
+Kicked {
+	if g_Mode==1 {
+		//触りでキックされたら通常に戻る。そうでない場合はそのまま。
+		g_Mode=0
+	}
+
+	//自分の位置取得
+	_result=FUNCTIONEX('handutil.dll','GetRect',sakurahwnd,'rect')
+	_myleft=valueex4
+	_mytop=valueex5
+	_myright=valueex6
+	_mybottom=valueex7
+	
+	//デスクトップ幅取得
+	_dwidth=FUNCTIONEX('scribble.dll','screen_width')
+
+	_tox=0;
+	_toy=_mytop+(RAND(300)-150)
+	
+	if (_dwidth/2) > _myleft {
+		_tox=50
+	}else{
+		_tox=_dwidth-50
+	}
+	
+	"\![move,%(_tox),%(_toy),100,screen,left.top,base.base]"
+}
+
+OnAttackedFromAndy1 {
+	//フラワーロッドドリル成功
+	"\t%(Kicked)"
+	--
+	switch g_Shell {
+		'\v\0\s[605]そんなものが効くかッ！！'
+		'\v\0\s[605]そんなものはきかないのですー！'
+	}
+	--
+	_ev=g_Mode-1
+	"\![raise,OnSuper%(_ev)State1]"
+	--
+}
+
+OnAttackedFromAndy2 {
+	//フラワーロッドドリル失敗
+	switch g_Shell {
+		'\v\t\0\s[605]不発か！残念だったな！'
+		'\v\t\0\s[605]ふはつなのですっ！'
+	}
+	--
+	_ev=g_Mode-1
+	"\![raise,OnSuper%(_ev)State1]"
+	--
+}
+
+
+
+OnAttackedFromAndy3 {
+	//アンディからなすび攻撃 - 必殺技４の開始で発生
+	OnAttacked_MasterT_Nasubi1
+}
+
+OnAttackedFromEmit1a{
+	//衝撃魔法 - 消滅
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qAttack in Shock-Magic detected.\_q\w9\n\_qFrom: "Emit"\_q\n\n\w9\w9\_qForce-Materialize start.\_q\w9\n\_q\nAttack Stopped.\_q')
+	_pre='\t\v\1\c\![set,scaling,100]\s[10]\0\s[0]\c\![set,scaling,100]'
+	switch g_Shell {
+		"%(_pre)\0\s[1220]ぐあ、\w5エミット、\w5いてえじゃねえかッ！！\w9\n体が…\w5…\w5ばらばらにッ…\w5くそっ、\w5今度会ったらたっぷりかわいがってやる！\w9\nあばよ！"
+		"%(_pre)\0\s[1220]あう、\w5えみっとさんひどいのですっ！\w9\nああ\w5…\w5ばらばらになるですーっ…\w5こんどあったらたっぷりかわいがってやるのですっ！\w9\nあばよなのですっ！"
+	}
+	--
+	_ev=g_Mode-1
+	"\![raise,OnSendHandActivate,SuperEnd,%(_ev),deleted]"
+	--
+	"\w9\w9\w9\w9\w9\w9\w9\w9\w9\w9\-\e"
+	--
+	_result=EVAL("Super%(_ev)End()")
+}
+
+
+
+OnAttackedFromEmit1b{
+	//衝撃魔法 - 復帰
+	PutEB('\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\c\_qWARNING\_q\w3\n\n\_qAttack in Shock-Magic detected.\_q\w9\n\_qFrom: "Emit"\_q\n\n\_qMaterialized level : \_q3\w5\b2 2\w5\b2 1\w5\b2 0\w9\n\_qMaterialize stopped.\_q')
+	_pre='\t\v\1\c\![set,scaling,100]\s[10]\0\s[0]\c\![set,scaling,100]'
+	switch g_Shell {
+		"%(_pre)\0\s[1220]ぐあ、\w5エミット、\w5いてえじゃねえかッ！！\w9\n体が…\w5…\w5ばらばらにッ…\w5\s[1230]\w9\w9\w9\w9なーんちゃってな！\w9\n無駄無駄無駄無駄ァ！\w9\nそんなものは効かん！\w9\nお仕置きショータイム開始ッ！！"
+		"%(_pre)\0\s[1220]あう、\w5えみっとさんひどいのですっ！\w9\nああ\w5…\w5ばらばらになるですーっ…\w5\s[1230]\w9\w9\w9\w9なーんちゃってなのです！\w9\nむだむだむだむだなのですっ！\w9\nにしし、\w5おしおきしょーたいむかいしなのですっ！"
+	}
+	--
+	_ev=g_Mode-1
+	"\![raise,OnSendHandActivate,SuperEnd,%(_ev),attacked]"
+	--
+	_result=EVAL("Super%(_ev)End()")
+}
+
+
+OnAttackedFromEmit2{
+	//カネコ
+	//その場で必殺技おしまい
+	_pre='\t\v\1\c\![set,scaling,100]\s[10]\0\s[0]\c\![set,scaling,100]'
+	if g_Shell == 0 {
+		"%(_pre)%(Kicked)\0\s[605]いてっ！\w9\n可愛いぬこさまに何をするかッ！！"
+		"%(_pre)%(Kicked)\0\s[605]いてっ！\w9\nぬこがかわいそうだろ、\w9ぬこがッ！！"
+		"%(_pre)%(Kicked)\0\s[605]いてっ！\w9\n大丈夫か、\w5ぬこーッ！！"
+	}else{
+		"%(_pre)%(Kicked)\0\s[605]いたっ！\w9\nぬこさんがかわいそうなのですっ！！"
+		"%(_pre)%(Kicked)\0\s[605]いたっ！\w9\nぬこさま、\w5だいじょうぶですか？"
+	}
+	--
+	_ev=g_Mode-1
+	"\![raise,OnSendHandActivate,SuperEnd,%(_ev),attacked]"
+	--
+	_result=EVAL("Super%(_ev)End()")
+}
+
+OnAttackedFromEmit3{
+	//ナスビ - 必殺技４の開始で発生
+	OnAttacked_MasterT_Nasubi1
+}
+
+OnAttacked_MasterT_Nasubi1{
+	//その場で必殺技おしまい
+
+	'\t\c\1\f[color,255,0,0]\f[height,16]\f[bold,1]'
+	--
+	"\vな、\w5なすびはいやあああぁぁぁッ！！%(disappear)"
+	--
+	'\f[height,default]\f[bold,0]\f[color,default]\c\b[-1]'
+	--
+	switch g_Shell {
+		'\0\s[605]ああっ、\w5マスターハイブリッジがッ！！\w9'
+		'\0\s[605]ああっ、\w5たか・・・はいぶりっじせんせいがっ！\w9'
+	}
+	--
+	_ev=g_Mode-1
+	"\![raise,OnSendHandActivate,SuperEnd,%(_ev),attacked]"
+	--
+	_result=EVAL("Super%(_ev)End()")
+}
+
+
+//**************************************
+//	特殊コミュ
+//**************************************
+SPCOM_viiandhand1{
+	g_Mode=100
+	res_reference0 = reference[0] //ghostname
+	res_reference1 = reference[2] //viiandhand-1 
+	res_reference2 = reference[3] + 1 
+	
+	case res_reference2 {
+		when   2 {'\t\w9\v\1\s[10]\0\s[7]なんだよヴィイ、\w5元気ねえな。\w9\n\s[601]俺が元気の出るツボを押してやろうか？'}
+		when   4 {'\t\w9\v\1\s[10]\0\s[7]さてはッ！！\w9\nヴィックスヴェポラップ塗り塗りプレイだなッ！？\w9\n\w9\n\s[100]…\w5…\w5って、\w5本当に具合悪そうだな。\w9\nお前でも風邪、\w5ひくのか？'}
+		when   6 {'\t\w9\v\1\s[10]\0\s[7]どうでもいいだとッ！？\w9\nヴィックスヴェポラップを、\w5塗り塗りのロマンを馬鹿にするなっ！\w9\n後でたっぷりと教えてやるっ！\w9\n\w9\n\w9\n\s[0]…\w5で、\w5五分で治るのか…\w5卵酒でも飲むのか？'}
+		when   8 {'\t\w9\v\1\s[10]\0\s[4]な、\w5何だとッ！\w9\nこれが伝説の、\w9\s[1]「お兄ちゃん体が熱いの…」\w9\s[4]ってヤツか！？\w9\n\s[100]まさかッ！\w9\n貴様があの封印されし秘技の使い手とはッ！'}
+		when  10 {'\t\v\1\s[10]\0\s[6]まあまあ、\w5恥ずかしがっちゃダメだぜヴィイちゃん。\w9\n\w9\n\s[3]…\w5でもお前さんなら、\w5一々不完全な免疫に頼らんでも、\w5いくらでも手はあるだろうに…\w9\n何でそんな面倒なことするんだ？'}
+		when  12 {'\t\w9\v\1\s[10]\0\s[0]い、\w5いや、\w5あの、\w5泣く…\w5って。\w9\n\w9\n\w9\w9…\w5\s[7]ちッ。\w9調子狂うぜ。\w9\n\s[6]…\w5ほらよ、\w5毛布でもかぶって、\w5とっとと寝て治してこい。\w9\nこっちの相手は俺が適当にやっておいてやる。'}
+		when  14 {'\t\w9\v\1\s[10]\0\s[0]…\w5…\w5ありがとう、\w5ねえ…\w5…\w5\w9\w9\w9\n…\w5なんだ、\w5羨ましいか？\w9\nまあ、\w5そっちからじゃ看病もしてやれねえ、\w5マトモに言葉もかわせねえ、\w5もどかしいと思ってんだろ？\w9\n\w9\n\w9\w9…\w5だけどな、\w5お前さんがコイツに会ってやること、\w5撫でてやること。\w9\nそれでコイツは、\w5お前さんがそこに居ると分かる。\w9\n\w9\n\w9\w9…\w5…\w5だから、\w5それだって充分、\w9言葉、\w9なんだぜ。'}
+		when  16 {'\t\v\1\s[10]\0\s[4]おわ、\w5起きてんのか？\w9\n\s[0]…\w5いや、\w5寝言か。\w9お前さんの名前呼んでたぜ。\w9\n\w9\n\s[5]…\w5…\w5コイツが元気になったら、\w5いっぱい撫でてやりな。'}
+		when  18 {'\t\w9\v\1\s[10]\0\s[4]そうだ、\w5よし、\w5触りの王にして王の触りたる俺様が、\w5じきじきに撫で方を教えてやる！\w9\n\s[100]まずはだな、\w5頭を撫でると見せかけて背中をすっと撫でるッ！\w9\n\s[200]そして驚いたスキをついて弱点の髪をなでるッ！\w9\n\s[300]ガードが下がったところで間髪を入れずに容赦なく胸を'}
+		when  20 {'\t\v\1\s[10]\0\s[4]どわっ、\w5イキナリ起きるんじゃねえっ！\w9\n\w9\n…\w5なんだ、\w5もう元気そうだな？\w9\n\s[7]弱点が無いかどうかその身体に聞いてやろうかッ！？'}
+		others{
+			res_reference0 = ''
+			res_reference1 = ''
+			res_reference2 = ''
+			g_Mode=0
+		}
+	}
+}
+
+SPCOM_Lyraina_Hand_1{
+	_ev=g_Mode-1
+	_result=EVAL("Super%(_ev)End()")//必殺技終了
+
+	g_Mode=100
+	res_reference0 = reference[0] //ghostname
+	res_reference1 = reference[2] //viiandhand-1 
+	res_reference2 = reference[3] + 1 
+
+	
+	if g_Shell == 0 {
+		case res_reference2 {
+			when   2 {'\t\w9\v\1\s[10]\0\s[7]逃げるんじゃねえッ。\w9いい加減にしないとどうなるってんだ？\w9\w9'}
+			when   4 {'\t\w9\v\1\s[10]\0\s[7]ちょ、\w5何だこのわっかはッ！？\w9\w9'}
+			when   6 {'\t\w9\v\1\s[10]\0\s[7]が、\w5概念空間圧縮ッ！\w9\![set,scaling,60]いかん、\w5存在が縮んで\![set,scaling,40]\s[605]\nちょ、\w5りーらたん、\w5悪かったから出してッ！\n\![set,scaling,20]わかった、なでなでは１日５分までにするからッ！\s[-1]\![set,scaling,100]\w9ねえッ！\w9\w9'}
+			when   8 {"\w9\v\1\s[10]\0\s[-1]%(danmatuma)ーーーーーーーッ！！！！\n\w9\w9\w9くそう！\w9今度会ったら（ピー）を（ピー）してたっぷりと（ピー）の刑だッ！\w9\n覚えてろよーッ！！\w9\w9\w9\w9\-"}
+			others{
+				res_reference0 = ''
+				res_reference1 = ''
+				res_reference2 = ''
+				g_Mode=0
+			}
+		}
+	}else{
+		case res_reference2 {
+			when   2 {'\t\w9\v\1\s[10]\0\s[4]にげちゃだめなのですーッ！\w9\w9'}
+			when   4 {'\t\w9\v\1\s[10]\0\s[4]な、\w5なんですかこのわっかはっ？\w9\w9'}
+			when   6 {'\t\w9\v\1\s[10]\0\s[4]ち、\w5ちぢむですッ！\w9\![set,scaling,60]せまいですっ！\w9\![set,scaling,40]\nこわいのですっ！\![set,scaling,20]やめてくださいなのですーっ！\s[-1]\![set,scaling,100]\w9やーっ！\w9\w9'}
+			when   8 {"\t\w9\v\1\s[10]\0\s[-1]%(danmatuma)ーーーーーーーッ！！！！\n\w9\w9\w9くそう！\w9こんどあったら（ごにょごにょ）を（ごにょごにょ）してたっぷりと（ごにょごにょ）のけいなのですッ！\w9\w9\w9\w9\-"}
+			others{
+				res_reference0 = ''
+				res_reference1 = ''
+				res_reference2 = ''
+				g_Mode=0
+			}
+		}
+	}
+}
+
+danmatuma{
+	'ひでぶ'
+	'たわば'
+	'あべし'
+}

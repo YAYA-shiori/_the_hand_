@@ -1,0 +1,262 @@
+//**************************************
+//	DoSuper4Event	必殺技４
+//	【呼出】
+//		OnSecondChange->DoSuper4Event
+//	【処理】
+//	【Global】
+//		ghosthwnd,ghostname
+//**************************************
+StartSuper4{
+	SendHandActivate(ghosthwnd,'SuperStart','4','')
+	g_Mode=5
+	g_SecondCallFunc=""
+	g_Super4Count=0
+	g_Super4HitCount=0
+	g_SuperHoming=0
+	PutEB("\c\_q\n   It's\n\n        S H O W T I M E !!\_q")
+	--
+	'\![raise,OnSuper4State0]'
+	--
+}
+
+OnSuper4State0{
+	_result=FUNCTIONEX('mciaudior.dll','load','sound/sp4start.wav')
+	_result=FUNCTIONEX('mciaudior.dll','loop')
+	//口上
+	--
+	'\t\f[color,255,0,0]\f[height,16]\f[bold,1]'
+	--
+	switch g_Shell {
+		{
+			"\v\1\s[10]\0\s[1401]俺はゴーストをやめるぞ%(ghostname)―ッ！！\w9\w9"
+			"\v\1\s[10]\0\s[1401]%(ghostname)―ッ！！\w9君がッ！\w9泣くまでッ！\w9触るのをやめないッ！！\w9\w9"
+			"\v\1\s[10]\0\s[1401]%(ghostname)ッ！！\w9貴様ッ！\w9見ているなッ！！\w9\w9"
+		}
+		{
+			"\v\1\s[10]\0\s[1401]わたしはごーすとをやめるです%(ghostname)―っ！！\w9\w9"
+			"\v\1\s[10]\0\s[1401]%(ghostname)さんがっ！\w9なくまでっ！\w9さわるのをやめないのですっ！！\w9\w9"
+			"\v\1\s[10]\0\s[1401]%(ghostname)さんっ！！\w9みているですねっ！！\w9\w9"
+		}
+	}
+	--
+	'\![raise,OnSuper4State1]'
+	--
+}
+
+OnSuper4State1{
+	//ドッギャーン
+	
+	//まずは\1を\0の近くに移動
+	//自分の位置取得
+	_result=FUNCTIONEX('handutil.dll','GetRect',sakurahwnd,'rect')
+	_myleft=valueex4
+	_mytop=valueex5
+	_myright=valueex6
+	_mybottom=valueex7
+	
+	_keroleft=((_myright+_myleft)/2)-50;
+	_kerotop=((_mybottom+_mytop)/2)-100;
+	_result=FUNCTIONEX('handutil.dll','MoveWindow',kerohwnd,_keroleft,_kerotop);
+
+	switch g_Shell {
+		'\C\v\1\s[10]\0\n出でよ、\w5マスターハイブリッジッ！！\![raise,OnTakahashi]\n'
+		'\C\v\1\s[10]\0\nいでよ、\w5ますたーたか…\w5はいぶりっじせんせいっ！\![raise,OnTakahashi]\n'
+	}
+	--
+	'\f[height,default]\f[bold,0]\f[color,default]'
+	--
+}
+
+OnTakahashi{
+	SuperCommonPlaySound('sp1start.wav')
+	'\C\1\s[1400]'
+	--
+	'\w9\w9\w9\w9\![raise,OnSuper4State2]'
+	--
+}
+
+OnSuper4State2{
+	//ここで相手のほうに移動
+	if g_Shell == 1 {
+		SuperCommon2('\s[1000]えーと・・・なんとかつんでれ！\w9\w9\c')
+	}else{
+		SuperCommon2('\s[1000]ディ・ゼヒツェーン・トートズュンデ！！\w9\w9\c')
+	}
+	--
+	g_Super4HitCount=0
+	g_keylength=2
+	g_Super4Count=7
+	if g_hitnum == 0 {
+		--
+		'\![raise,OnSuper4State10]'
+		--
+		return
+	}
+	if g_TargetMoved != '0' {
+		--
+		'\![raise,OnSuper4State20]'
+		--
+		return
+	}
+	_result=KeyComboStart()
+	--
+	'\![raise,OnSuper4State3]'
+	--
+}
+
+OnSuper4State3{
+	_result=FUNCTIONEX('mciaudior.dll','stop')
+	_result=FUNCTIONEX('mciaudior.dll','load','sound/sp4continue.wav')
+	_result=FUNCTIONEX('mciaudior.dll','loop')
+	--
+	'\![raise,OnSuper4State4]'
+	--
+}
+
+OnSuper4State4{
+	//オラオラ。毎秒キックされる
+	g_SecondCallFunc="OnSuper4State4"
+	
+	//相手の矩形チェック
+	_result=GetAndCheckGhostRect(ghosthwnd)
+	if _result != '0' {
+		if ghostname == 'リーライナ' && RAND(3)!=0 {
+			//リーライナの場合一定確率で追尾
+			--
+			'\![raise,OnSuper4State30]'
+			--
+			return
+		}else{
+			--
+			'\![raise,OnSuper4State20]'
+			--
+			return
+		}
+	}
+	
+	// \h と \u をランダムに矩形に位置させる
+	g_Super4HitCount+=16//１秒に１６増える
+	_col=ANY(colstring);
+	_colname=_col[0]
+	_result=SendHandActivate(ghosthwnd,'SuperContinue','4',g_Super4HitCount,_colname)
+	_left  =_col[1];CVINT(_left);
+	_top   =_col[2];CVINT(_top);
+	_right =_col[3];CVINT(_right);
+	_bottom=_col[4];CVINT(_bottom);
+	_x=g_left +(_right-_left)/2+_left-65
+	_y=g_top  +(_bottom-_top)/2+ _top-15
+	_result=FUNCTIONEX('handutil.dll','MoveWindow',sakurahwnd,_x,_y)
+	_result=FUNCTIONEX('handutil.dll','MoveWindow',kerohwnd,_x-100,_y-100)
+	switch g_Shell {
+		'\C\v\0\s[1402]セクハラハラハラハラハラハラハラハラ'
+		'\C\v\0\s[1402]せくはらはらはらはらはらはらはらはら'
+	}
+
+	g_Super4Count--
+	if g_Super4Count <= 0 {
+		--
+		'\![raise,OnSuper4State5]'
+		--
+	}
+}
+
+Mode5KeySuccess{
+	g_Super4Count+=RAND(1)+1;
+	if g_Super4HitCount < 80  {
+		g_keylength=2
+	} elseif g_Super4HitCount < 160 {
+		g_keylength=3
+	} elseif g_Super4HitCount < 240 {
+		g_keylength=4
+	} elseif g_Super4HitCount < 320 {
+		g_keylength=5
+	} else {
+		g_keylength=6
+	} 
+}
+
+
+OnSuper4State5{
+	g_SecondCallFunc=""
+	//相手の矩形取得
+	_result=FUNCTIONEX('handutil.dll','GetRect',ghosthwnd,'rect')
+	_left=valueex4
+	_top=valueex5
+	_right=valueex6
+	_bottom=valueex7
+	//CVINT(_left)
+	//CVINT(_top)
+	//CVINT(_right)
+	//CVINT(_bottom)
+	_tox=(_right-_left)/2+_left
+	_toy=_top-100
+	
+	_talk='セクハラ・チェーロッ！！'
+
+	_result=SendHandActivate(ghosthwnd,'SuperEnd','4',g_Super4HitCount)
+	_result=Super4End()
+
+	_endtalk+="\t\v\1\s[10]\0\s[0]\![move,%(_tox),%(_toy),1000,screen,left.top,base.base]\f[color,255,0,0]\f[height,25]\f[bold,1]%(g_Super4HitCount) 連射!\n\w9\w9%(_talk)\f[height,default]\f[bold,0]\f[color,default]"
+	_endtalk
+}
+
+Super4End : void {
+	SuperCommonPlaySound('sp1end.wav')
+	g_Mode=0
+	g_Super4Count=0
+	g_SecondCallFunc=""
+	g_keycombo=0
+	PowerUp(-g_power)
+}
+
+//当たり判定が無い場合State10
+OnSuper4State10 {
+	_result=SendHandActivate(ghosthwnd,'SuperContinue','4','0','')
+	"\v\1\s[10]\0\s[0]…\w5…\w5…\w5…\w5…\w5…\w5\![raise,OnSuper4State10b]"
+}
+
+OnSuper4State10b {
+	_result=SendHandActivate(ghosthwnd,'SuperEnd','4','nocollision')
+	switch g_Shell {
+		"\v\1\s[10]\0\s[7]どこを触れってんだこのクソ野郎！"
+		"\v\1\s[10]\0\s[605]どこをさわれってんだこのくそやろう、\w5ですー！"
+	}
+	Super4End()
+}
+
+
+OnSuper4State20 {
+	_endtalk=''
+	_result=FUNCTIONEX('mciaudior.dll','stop')
+	_endtalk+='\t\v\1\s[10]\0\s[7]'
+	if g_Shell == 1 {
+		_endtalk+="ちっ、\w5にげられたです。"
+	}else{
+		_endtalk+="ちっ、\w5逃げられたか。"
+	}
+	_endtalk
+	_result=SendHandActivate(ghosthwnd,'SuperEnd','4','escaped')
+	Super4End()
+}
+
+OnSuper4State30{
+	//逃がさずに追尾
+	GetGhostRect(ghosthwnd)
+	SaveGhostRect()
+	_tox=(g_right-g_left)/2+g_left
+	_toy=(g_bottom-g_top)/2+g_top
+	_talk='\0\s[610]\_q甘い甘い甘い甘いッ！！\_q\w5\n\_q逃がすかぁッ！！\_q'
+
+	//逃がすかイベント
+	g_SuperHoming++
+	SendHandActivate(ghosthwnd,'SuperHoming','4',g_SuperHoming)
+
+	//ここですーっと相手の方に移動
+	'\c\t\f[color,255,0,0]\f[height,16]\f[bold,1]'
+	--
+	"\v\0%(_talk)\1\![move,%(_tox),%(_toy),300,screen,left.top,base.base]\0\![move,%(_tox),%(_toy),300,screen,left.top,base.base]"
+	--
+	'\f[height,default]\f[bold,0]\f[color,default]\c'
+	--
+}
+

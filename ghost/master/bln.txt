@@ -1,0 +1,71 @@
+//-------- easyballoon 設定ファイル
+//-------- Copyright (C) 2001-2003 umeici.
+
+//-------- 想像（sakura側）
+[handbal]
+position,			lefttop
+skin,				handbal.png
+
+offset.x,			32
+offset.y,			32
+
+disparea.top,		8
+disparea.bottom,	92
+disparea.left,		9
+disparea.right,		229
+
+font.color,			00ff00
+font.size,			12
+//font.face,			Courier New
+font.bold,			off
+
+clickerase,			off
+dragmove.horizontal,on
+dragmove.vertical,	on
+
+nooverlap,			off
+life,				infinitely
+
+
+[heart]
+position,			lefttop
+skin,				heart.png
+
+offset.x,			0
+offset.y,			0
+
+disparea.top,		20
+disparea.bottom,	45
+disparea.left,		10
+disparea.right,		55
+
+font.color,			000000
+font.size,			10
+//font.face,			Courier New
+font.bold,			off
+
+clickerase,			off
+dragmove.horizontal,off
+dragmove.vertical,	off
+
+nooverlap,			off
+life,				infinitely
+
+//action.method,		vibrate
+//action.reference0,	8
+//action.reference1,	8
+//action.reference2,	500
+
+[heartsmall]
+position,			lefttop
+skin,				heartsmall.png
+
+offset.x,			0
+offset.y,			0
+
+clickerase,			off
+dragmove.horizontal,off
+dragmove.vertical,	off
+
+nooverlap,			off
+life,				infinitely

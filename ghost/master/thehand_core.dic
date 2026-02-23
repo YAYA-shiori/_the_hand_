@@ -1,0 +1,842 @@
+//*****************************************************************************
+// The Hand コア処理辞書
+// written by ukiya.
+// template by umeici.
+//*****************************************************************************
+
+//**************************************
+//	OnAiTalk
+//	【呼出】
+//		SHIORI3FW.ControlAiTalk(OnSecondChangeを契機としてチェック）から
+//		トーク間隔 aitalkinterval 毎に呼び出される
+//	【処理】
+//		以下を一定の割合でランダムに実行
+//		ターゲット初期化処理	RefreshTarget()
+//		コミュニケート			StartCommunicate()
+//		ランダムトーク			RandomTalk()
+//**************************************
+OnAiTalk
+{
+	if g_Mode != 0 {
+		return
+	}
+	_r=RAND(100)
+	if _r < 20 {
+		RefreshTarget()
+	} elseif _r < 30 {
+		StartCommunicate()
+	} else {
+//		if mikireflag == 0 {
+			//---- 通常のランダムトーク、ただしチェイン中はチェイントーク
+			if CHAIN.IDName == '' {
+				RandomTalk()
+			} else {
+				ChainTalk()
+			}
+//		} else {
+//			//---- 見切れ中なので見切れ中のトークを行う
+//			MikireTalk()
+//		}
+	}
+}
+
+
+//**************************************
+//	OnVoice
+//	【呼出】
+//	【処理】
+//**************************************
+OnVoice
+{
+	if reference[0] != '' && g_Sound != 0 {
+		_result=FUNCTIONEX('mciaudior.dll','stop')
+		_result=FUNCTIONEX('mciaudior.dll','load','sound/'+reference[0])
+		_result=FUNCTIONEX('mciaudior.dll','play')
+	}
+}
+
+//**************************************
+//	RefreshTarget
+//	【呼出】
+//		OnAiTalkから一定の割合でコール
+//	【処理】
+//		コメント参照
+//	【In】
+//	【Out】
+//	【Global】
+//		out:studybuf	学習テーブルの該当レコード
+//			method		触り方法
+//			eventnum	１回（１秒）に投げる触りイベント回数
+//			g_State		触りイベントの持続回数（時間（秒））
+//			dest_x		当たり判定の中心のデスクトップ座標 x
+//			dest_y		当たり判定の中心のデスクトップ座標 y
+//		in: 色々（ほぼ全部）
+//**************************************
+RefreshTarget{
+	ghosthwnd=''
+	ghostname=''
+	_critical=0
+
+	//FMO読み出し
+	SHIORI3FW.RefreshFMOTable(fmoname)
+	if ARRAYSIZE(SHIORI3FW.SakuraNameList) ==0 {
+		g_Mode=0
+		OnNoGhostExist()
+		return
+	}
+
+	//ゴースト選択
+	ghosthwnd=SelectGhost(&ghostname,&_keroname,&_kerohwnd)
+	if ghosthwnd=='0' {
+		g_Mode=0
+		OnNoGhostExist()
+		return
+	}
+
+	//当たり判定取得、\1へ差し替え
+	GetCollision(ghosthwnd)
+	GetGhostRect(ghosthwnd)
+
+	//当たり判定名をカンマ区切りで列挙→_colstr
+	_num=ARRAYSIZE(colstring)
+	_colstr=''
+	for _i=0 ; _i<_num ; _i++{
+		_colstr+=colstring[_i,'|'][0,',']+','
+	}
+
+	//学習テーブルを引く
+	studybuf=GetStudyTable(ghostname,_colstr)
+
+	_stcolname=''
+	if studybuf != '' {
+		_stcolname=studybuf[1,'|']
+		_critical=1
+	}
+	if studybuf[3,'|'] == '触らん' {
+		g_Mode=0
+		OnDontEvent(studybuf[5,'|'])
+		return
+	}
+
+	//当たり判定位置を選択
+	//学習テーブル引きに失敗した場合は _stcolname に ''が入っており
+	//ここでランダム選択される
+	_result=SelectCollision(_stcolname)
+	if _result=='0' {
+		g_Mode=0
+		OnCollisionFailed()
+		return
+	}
+
+	//触り方法決定
+	//学習テーブル引きに成功していた場合は指定されたもの
+	//そうでない場合はランダム
+	method='OnMouseMove'
+	if studybuf != '' {
+		method=studybuf[4,'|']
+	}else{
+		method=ANY('OnMouseMove,OnMouseMove,OnMouseMove,OnMouseDoubleClick,OnMouseDoubleClick,OnMouseWheel')
+	}
+
+	//OnMouseMove の場合10回連続イベント投げを10秒繰り返す
+	//そうでない場合は１回のみ
+	g_State=1
+	eventnum=1
+	if method=='OnMouseMove'{
+		g_State=10
+		eventnum=10
+	}
+	if method=='OnMouseWheel'{
+		g_State=1
+		eventnum=5
+	}
+	
+	// 当たり判定の中心のデスクトップ座標取得
+	dest_x=g_left+((c_left+c_right)/2)
+	dest_y=g_top+((c_top+c_bottom)/2)
+
+	//現在の矩形を保持しておく
+	SaveGhostRect()
+	
+	//_talkeventには効果音が、_talkには触り始めの台詞（サーフィス含む）が入る
+	_talkevent=EVAL("Talk%(method)")
+	_talk=StartTalk(_talkevent)
+
+	//OnHandActivate送信
+	SendHandActivate(ghosthwnd,'NormalStart',c_name,method,_talk)
+
+	//モード切替
+	g_Mode=1
+
+	//パワー上昇
+	if _critical == 0 {
+		PowerUp(RAND(10)+5)
+	} else {
+		PowerUp(RAND(30)+10,'Critical Hit!')
+	}
+
+	//触り始めトーク、移動
+	"\t\v\1\s[10]\0%(_talk)\![move,%(dest_x),%(dest_y),1000,screen,left.top,base.base]\e"
+}
+
+
+//**************************************
+//	SelectGhost
+//	【呼出】
+//		RefreshTarget
+//	【処理】
+//		fmotableグローバル変数を元にどれか１つのゴーストとそのHWNDを返す
+//	【Out】
+//		&argv0	ゴースト名称
+//		&argv1	ゴースト名称（kero）
+//		&argv2	HWND（kero）
+//		result	HWND
+//	【Global】
+//		in:fmotable
+//**************************************
+SelectGhost{
+	_gname=''
+	_hwnd=0
+	_buf=ANY(SHIORI3FW.FMOTable)
+	_gname=_buf[1,'|']
+	_kname=_buf[2,'|']
+	_hwnd=_buf[3,'|']
+	_khwnd=_buf[4,'|']
+	_argv[0]=_gname
+	_argv[1]=_kname
+	_argv[2]=_khwnd
+	_hwnd
+}
+
+//**************************************
+//	GetCollision
+//	【呼出】
+//		RefreshTarget
+//	【処理】
+//		指定されたHWNDのゴーストの当たり判定とシェル矩形を取得し
+//		グローバル変数に格納
+//		SSPのGetCollision拡張を利用→ダメならSAKURA APIを利用
+//	【In】
+//		argv0	HWND(\0)
+//		argv1	id(0=\0) // 2008.01.13追加
+//	【Global】
+//		out:colstring , g_top,g_left,g_right,g_bottom
+//		colstringは collisionname,left,top,right,bottom（|でレコード区切り）
+//		colstringはSETDELIM(colstring,'|')されていることに注意
+//		g_??? がシェル矩形
+//**************************************
+GetCollision : void {
+	_hwnd=_argv[0]
+	_id=_argv[1]
+	_id=TOSTR(_id)
+	if _id=='' {
+		_id='0'
+	}
+
+	_result=''
+	InitPosition()
+
+	if _hwnd==0 {
+		return
+	}
+
+	//まずは EXECUTE を試してみる
+	_result=FUNCTIONEX('handutil.dll','DSSTPSend',_hwnd,'result',/
+	'EXECUTE SSTP/1.4',/
+	'Charset: Shift_JIS',/
+	'Sender: TheHand',/
+	'Command: GetCollision',/
+	"reference0: %(_id)")
+	
+	//CVINT(_result);
+	if _result > 1 { // １行以上帰れば成功
+		for _i=1 ; _i < _result ; _i++ {
+			_buf=EVAL("valueex%(_i)")
+			if colstring!='' {
+				colstring+='|'
+			}
+			colstring+=_buf[0,':']+','+_buf[1,':']
+		}
+	}else{
+		if _id=='0' {
+			//それがダメならSAKURA APIを試す
+			_pos=ANY(('Head','Bust','Face'))
+			_result=FUNCTIONEX('handutil.dll','GetRect',_hwnd,_pos[_i])
+			//CVINT(_result)
+			if _result!=0 {
+				colstring=_pos+','+valueex0+','+valueex1+','+valueex2+','+valueex3
+			}
+		}
+	}
+	SETDELIM(colstring,'|')
+	//どちらにしても相手の矩形は取得
+	//GetGhostRect(_hwnd_target)
+}
+
+
+//**************************************
+//	GetGhostRect
+//	【呼出】
+//		GetCollision,DoEvent
+//	【処理】
+//		指定されたHWNDの矩形を取得しグローバル変数に格納
+//		対象がウィンドウで無い、あるいはSSPの一時起動ゴーストの場合は
+//		対象矩形・当たり判定矩形ともに''にリセットされることに注意
+//	【In】
+//		argv0	HWND
+//	【Global】
+//		out:g_top,g_left,g_right,g_bottom
+//		（失敗時は加えて c_top,c_left,c_right,c_bottom）
+//**************************************
+GetGhostRect : void {
+	_hwnd=_argv[0]
+	_result=FUNCTIONEX('handutil.dll','GetRect',_hwnd,'rect')
+	g_left=valueex4
+	g_top=valueex5
+	g_right=valueex6
+	g_bottom=valueex7
+	//CVINT(g_left)
+	//CVINT(g_top)
+	//CVINT(g_right)
+	//CVINT(g_bottom)
+	//投げ先がウィンドウではない
+	if result==-9999 {
+		InitPosition()
+	}
+	//SSPの場合、一時起動ゴーストは（10,10,200,200）を返すみたい
+	if g_left==10 && g_top==10 && g_right==200 && g_bottom==200{
+		InitPosition()
+	}
+}
+
+//**************************************
+//	InitPosition
+//	【呼出】
+//		GetCollision,GetGhostRect,Initialize
+//	【処理】
+//		グローバル変数を''に初期化
+//	【Global】
+//		colstring,c_name,c_left,c_right,c_bottom,c_top,
+//		g_top,g_left,g_right,g_bottm
+//**************************************
+InitPosition : void {
+	colstring=''
+	c_name=''
+	c_left=''
+	c_right=''
+	c_bottom=''
+	c_top=''
+	g_left=''
+	g_right=''
+	g_top=''
+	g_bottom=''
+}
+
+//**************************************
+//	GetStudyTable
+//	【呼出】
+//		RefreshTarget
+//	【処理】
+//		学習テーブル（studytableグローバル変数）から１つを選んで返す
+//		学習テーブルの構造
+//		ゴースト名|コリジョン名|ヒット確率|コリジョン呼び名|メソッド|特殊トーク
+//	【In】
+//		argv0	ゴースト名（ゴースト名は部分一致であることに注意せよ）
+//		argv1	コリジョン名列挙（カンマ区切り）
+//	【Out】
+//		result	ヒットしたレコードの内容
+//**************************************
+GetStudyTable{
+	if studytable == '' {
+		RefreshStudyTable()
+	}
+	_num=ARRAYSIZE(studytable)
+
+	_result=''
+	_sumratio=0
+	_dstratio=RAND(100)
+	for _i=0 ; _i<_num ; _i++ {
+		_buf=studytable[_i]
+		if _argv[0] _in_ _buf[0,'|'] &&  CheckTable(_argv[1],_buf[1,'|'])!=-1 {
+			_ratio=_buf[2,'|']
+			CVINT(_ratio)
+			_sumratio += _ratio
+			if _dstratio < _sumratio {
+				_result=_buf
+				break
+			}
+		}
+	}
+	_result
+}
+
+//**************************************
+//	CheckTable
+//	【呼出】
+//		GetStudyTable
+//	【処理】
+//		カンマ区切りの文字列の中に指定する文字列があるかどうかチェックする
+//		サーチ文字列が*の場合は問答無用で0を返す
+//	【In】
+//		argv0 サーチ対象カンマ区切り文字列
+//		argv1 サーチ文字列
+//	【Out】
+//		result 見つかった場合は序数　見つからなかったら-1
+//**************************************
+CheckTable
+{
+	if _argv[1] == '*' {
+ 		0
+ 		return
+	}
+	_src=_argv[0]
+	_num=ARRAYSIZE(_src)
+	for _i=0 ; _i<_num ; _i++ {
+		if _argv[1] == _src[_i] {
+			_i
+			return
+		}
+	}
+	-1
+	return
+}
+
+//**************************************
+//	SelectCollision
+//	【呼出】
+//		RefreshTarget
+//	【処理】
+//		グローバル変数 colstring から指定した当たり判定位置を取得し
+//		グローバル変数に格納
+//	【In】
+//		argv0	コリジョン名（無ければランダム）
+//	【Out】
+//		result	'1' OK
+//			'	'0' 失敗
+//	【Global】
+//		in:colstring
+//		out:c_name,c_left,c_top,c_right,c_bottom
+//		colstringはSETDELIM(colstring,'|')されていることに注意
+//**************************************
+SelectCollision{
+	_colname=_argv[0]
+	if colstring=='' {
+		'0'
+		return
+	}
+	_num=ARRAYSIZE(colstring)
+	if _num==0 {
+		'0'
+		return
+	}
+	_buf=''
+	if _colname!='' {
+		for _i=0 ; _i<_num ; _i++ {
+			_cn=colstring[_i][0,',']
+			if _cn == _colname {
+				_buf=colstring[_i]
+				break
+			}
+		}
+	}else{
+		_buf=ANY(colstring)
+	}
+	c_name  =_buf[0]
+	c_left  =_buf[1]
+	c_top   =_buf[2]
+	c_right =_buf[3]
+	c_bottom=_buf[4]
+	CVINT(c_left)
+	CVINT(c_top)
+	CVINT(c_right)
+	CVINT(c_bottom)
+	'1'
+	return
+}
+
+//**************************************
+//	Initialize
+//	【呼出】
+//		各トーク等、色々
+//	【処理】
+//		グローバル変数等初期化
+//**************************************
+Initialize : void 
+{
+	g_State=0
+	ghostname=''
+	ghosthwnd=0
+	g_Mode=0
+	g_OldMode=0
+	g_MikireSecond=0
+	InitPosition()
+}
+
+
+
+//**************************************
+//	DoNormalEvent
+//	【呼出】
+//		OnSecondChange->DoNormalEvent
+//	【処理】
+//		実際の「触り」処理
+//		対象HWNDに対してDirectSSTPでOnMouse〜系イベント発行
+//		触り中トーク
+//	【Global】
+//		in:	c_left,c_top,c_right,c_bottom,
+//			g_left,g_top,g_right,g_bottom,
+//			g_State,eventnum,method,ghosthwnd
+//		out:g_State,eventnum
+//**************************************
+
+DoNormalEvent{
+	//矩形を再取得
+	_result=GetAndCheckGhostRect(ghosthwnd)
+	if _result == '2' {
+		//ゴーストが居なくなった？
+		g_State=0
+		g_Mode=0
+		OnTargetEscaped()
+		c_name='escaped'
+		method=''
+		NormalEnd()
+		return
+	}elseif _result == '1' {
+		//矩形が変わった―高い確率でサーフィス変化
+		g_State=0
+		g_Mode=0
+		OnTargetChanged()
+		c_name='escaped'
+		method=''
+		NormalEnd()
+		return
+	}
+
+	for _i=0 ; _i < eventnum; _i++{
+		//NOTIFY送信
+		_x=c_left+RAND(c_right-c_left)
+		_y=c_top+RAND(c_bottom-c_top)
+		_d=240
+		if RAND(2)==0 {
+			_d=-240
+		}
+		_result=FUNCTIONEX('handutil.dll','DSSTPSend',ghosthwnd,'',/
+		'NOTIFY SSTP/1.0',/
+		'Charset: Shift_JIS',/
+		'Sender: The Hand',/
+		"Event: %(method)",/
+		"reference0: %(_x)",/
+		"reference1: %(_y)",/
+		"reference2: %(_d)",/
+		'reference3: 0',/
+		"reference4: %(c_name)"/
+		)
+	}
+	'\t\v\1\s[10]\0'
+	--
+	EVAL("Talk%(method)")
+	--
+	'\n'
+	--
+	
+	g_State--
+	
+	if g_State!=0 { 
+/*
+		GetGhostRect(ghosthwnd)
+		//ゴーストが居なくなった？
+		if g_top==0 && g_bottom==0 && g_left==0 && g_right==0 {
+			g_State=0
+			OnTargetEscaped()
+		}elseif g_top!=o_top || g_bottom!=o_bottom || g_left!=o_left || g_right!=o_right {
+			//矩形が変わった―高い確率でサーフィス変化
+			g_State=0
+			OnTargetChanged()
+		}
+*/
+	}
+
+	if g_State<=0{
+		g_Mode=0
+		NormalEnd()
+	}
+}
+
+NormalEnd : void {
+	g_State=0
+	SendHandActivate(ghosthwnd,'NormalEnd',c_name,method)
+}
+
+
+//**************************************
+//	GetAndCheckGhostRect
+//	【呼出】
+//		
+//	【処理】
+//		相手の矩形を g_old* と比較、
+//		相手の幅 or 高さ以上変化していたら "1"
+//		相手が逃げた（矩形が0）なら"2"
+//		変化していなければ "0"
+//	【引数】
+//		argv[0]	対象HWND
+//	【Global】
+//		g_left,g_right,g_top,g_bottom
+//**************************************
+GetAndCheckGhostRect {
+	//相手の矩形取得
+	_result=GetGhostRect(_argv[0])
+	//ゴーストが居なくなった？
+	_width=g_right-g_left
+	_height=g_bottom-g_top
+	_dtop=g_top-g_oldtop
+	_dleft=g_left-g_oldleft
+	_dright=g_right-g_oldright
+	_dbottom=g_bottom-g_oldbottom
+	
+	if _dtop    < 0 { _dtop    = -_dtop}
+	if _dleft   < 0 { _dleft   = -_dleft}
+	if _dright  < 0 { _dright  = -_dright}
+	if _dbottom < 0 { _dbottom = -_dbottom}
+	
+	if g_left == 0 && g_right == 0 && g_top == 0 && g_bottom == 0 {
+		'2'
+		return
+	}elseif _dtop > (_height/2) || _dbottom > (_height/2) || _dleft > (_width/2) || _dright > (_width/2)  {
+		'1'
+		return
+	}else{
+		'0'
+		return
+	}
+}
+
+//**************************************
+//	SaveGhostRect
+//	【呼出】
+//		
+//	【処理】
+//		矩形位置を保存
+//	【引数】
+//	【Global】
+//		g_left,g_right,g_top,g_bottom
+//		g_oldleft,g_oldright,g_oldtop,g_oldbottom
+//**************************************
+SaveGhostRect : void {
+	g_oldtop=g_top
+	g_oldleft=g_left
+	g_oldright=g_right
+	g_oldbottom=g_bottom
+}
+
+
+//**************************************
+//	SendHandActivate
+//	【呼出】
+//		
+//	【処理】
+//		DSSTPでOnHandActivateを投げる
+//	【引数】
+//		argv[0]	対象HWND
+//		argv[1]	reference[0]
+//		argv[2]	reference[1]
+//		argv[3]	reference[2]
+//	【Global】
+//**************************************
+SendHandActivate : void {
+	if g_Shell == '' {
+		g_Shell=0
+	}
+	_result=FUNCTIONEX('handutil.dll','DSSTPSend',_argv[0],'',/
+		'NOTIFY SSTP/1.0',/
+		'Charset: Shift_JIS',/
+		'Sender: The Hand',/
+		'Event: OnHandActivate',/
+		"reference0: %(_argv[1])",/
+		"reference1: %(_argv[2])",/
+		"reference2: %(_argv[3])",/
+		"reference3: %(_argv[4])",/
+		"reference4: %(g_Shell)"/
+	)
+	//_result
+}
+
+OnSendHandActivate : void {
+	_result=SendHandActivate(ghosthwnd,reference[0],reference[1],reference[2],reference[3],reference[4])
+}
+
+
+//**************************************
+//	PutEB
+//	【呼出】
+//		
+//	【処理】
+//		EasyBalloonに文字表示
+//	【引数】
+//		argv[0]	表示する文字
+//	【Global】
+//**************************************
+PutEB : void {
+	_result=FUNCTIONEX('bln.dll','handbal',_argv[0],0,0,'handbal',2)
+}
+
+CloseBalloon : void{
+	_result=UNLOADLIB('bln.dll')
+}
+
+
+//**************************************
+//	PowerUp
+//	【呼出】
+//		
+//	【処理】
+//		パワーを上げる
+//	【引数】
+//		argv[0]	上げるパワー
+//		argv[1]	追加文字列
+//	【Global】
+//**************************************
+PowerUp : void {
+	CVINT(g_power)
+	g_power+=_argv[0]
+	if g_power >= 100 {
+		g_power=100
+		PutEB('\c\_qPower:■■■■■■■■■■MAX\n\nPush X Button!\_q')
+	}else{
+		_p=g_power/10
+		_ps=''
+		for _i=0 ; _i < 10 ; _i++ {
+			if _p > _i {
+				_ps+='■'
+			} else {
+				_ps+='□'
+			}
+		}
+		PutEB("\c\_qPower:%(_ps)\n%(_argv[1])\_q")
+	}
+}
+
+
+//**************************************
+//	キー入力コンボゲーム
+//	g_keycomboが1でないと発動しない
+//	成功すると Mode%(g_Mode)KeySuccess を呼ぶ
+//	【Global】g_arrowstr,g_inputedcount,g_inputedkey,g_keycombo
+//			  g_keyisok
+//**************************************
+KeyComboStart{
+	g_keycombo=1
+	KeyCombo()
+	PutEB("\c\_qInput Cursor Keys:\n%(g_arrowstr)\n\_q")
+}
+
+KeyCombo : void {
+	if g_keycombo != 1 {
+		return
+	}
+	//キー入力コンボゲーム
+	_arrows=('↑','←','→','↓')
+	g_arrowstr=''
+	g_inputedcount=0
+	g_inputedkey=''
+	for _i=0 ; _i<g_keylength ; _i++ {
+		g_arrowstr+=ANY(_arrows)
+	}
+	//_result=FUNCTIONEX('bln.dll','handbal',"\_q%(g_arrowstr)\_q",0,0,'handbal',1)
+	//PutEB("\w9\c\_q%(g_arrowstr)\_q")
+}
+
+//_argv[0]=up,down,left,right
+OnArrowKeyPress{
+	_arrow=SUBSTR(g_arrowstr,g_inputedcount,1)
+	_input=''
+	case _argv[0] {
+		when 'up' {
+			_input='↑'
+		}
+		when 'down' {
+			_input='↓'
+		}
+		when 'left' {
+			_input='←'
+		}
+		when 'right' {
+			_input='→'
+		}
+	}
+	
+	_put=_input
+	
+	if _input == _arrow {
+		g_inputedkey+=_input
+		g_inputedcount++
+	} else {
+		PutEB("\_q\nFAILED!!\_q")
+		g_keycombo=0
+		return
+	}
+
+	if g_inputedkey == g_arrowstr {
+		KeyCombo()
+		_put+="\_q\nOK!\n%(g_arrowstr)\n"
+		EVAL("Mode%(g_Mode)KeySuccess")
+	}
+	PutEB(_put)
+}
+
+GetShell {
+	case _argv[0] {
+	when 'Hand Girl'{1}
+	others {0}
+	}
+}
+
+disappear{
+ '\![set,alpha,90]\w3\![set,alpha,75]\w3\![set,alpha,60]\w3\![set,alpha,45]\w3\![set,alpha,30]\w3\![set,alpha,15]\w3\![set,alpha,0]\s[-1]\w3\![set,alpha,100]'
+}
+
+//******************************************************************************
+//マウスイベントコア
+//******************************************************************************
+AYATEMPLATE.MouseEventExec
+{
+	_fname = _argv[0] + TOSTR(reference[3]) + TOSTR(reference[4])
+	if ISFUNC(_fname) {
+		EVAL(_fname)
+		return
+	}
+	
+	_fname = _argv[0] + TOSTR(reference[3])
+	if ISFUNC(_fname) {
+		EVAL(_fname)
+		return
+	}
+}
+
+AYATEMPLATE.MouseMoveWheelFunc
+{
+	_side = TOINT(reference[3])
+	if _argv[0] {
+		_side += 10
+	}
+	
+	if AYATEMPLATE.strokeid[_side] == reference[4] {
+		if (GETTICKCOUNT - TOINT(AYATEMPLATE.stroketimer[_side])) > 1500 {
+			AYATEMPLATE.stroke[_side] = 1
+		}
+		AYATEMPLATE.stroketimer[_side] = GETTICKCOUNT
+		
+		_stroke = TOINT(AYATEMPLATE.stroke[_side])
+		_stroke += 1
+		AYATEMPLATE.stroke[_side] = _stroke
+		
+		if _stroke >= _argv[1] {
+			AYATEMPLATE.MouseEventExec(_argv[2]);
+			AYATEMPLATE.stroke[_side] = 1
+		}
+	}
+	else {
+		AYATEMPLATE.stroke[_side] = 1
+		AYATEMPLATE.stroketimer[_side] = GETTICKCOUNT
+		AYATEMPLATE.strokeid[_side] = reference[4]
+	}
+}

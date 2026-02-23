@@ -26,7 +26,6 @@ import fnmatch
 import hashlib
 import subprocess
 import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -130,12 +129,10 @@ def cmd_dau(root: Path, output: Path) -> None:
     with open(output, 'wb') as f:
         for i, (rel_str, abs_path) in enumerate(files):
             stat = abs_path.stat()
-            mtime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
             fields = [
                 rel_str,
                 _md5(abs_path),
                 f'size={stat.st_size}',
-                f'date={mtime.strftime("%Y-%m-%dT%H:%M:%S")}',
             ]
             if i == 0:
                 fields.append('charset=UTF-8')

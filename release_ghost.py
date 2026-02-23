@@ -15,9 +15,14 @@ Defaults:
   --root    current directory
   --output  <root>/updates2.dau  (dau)
             <root>/<dirname>.nar (nar)
+
+Ignore files (gitignore syntax):
+  .updateignore  patterns excluded from updates2.dau
+  .narignore     patterns excluded from .nar archive
 """
 
 import argparse
+import fnmatch
 import hashlib
 import subprocess
 import zipfile
@@ -25,24 +30,44 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-# ── 共通設定 ────────────────────────────────────────────────────────────────
+# ── .???ignore パターン ──────────────────────────────────────────────────────
 
-# いずれのコマンドでも除外するファイル名
-_SKIP_FILES_COMMON = {
-    '.gitignore',
-    'release_ghost.py',
-}
+def _load_ignore_patterns(path: Path) -> list[str]:
+    """Load patterns from a .updateignore/.narignore file (gitignore syntax)."""
+    if not path.exists():
+        return []
+    patterns = []
+    for line in path.read_text(encoding='utf-8').splitlines():
+        line = line.strip()
+        if line and not line.startswith('#'):
+            patterns.append(line)
+    return patterns
 
-# updates2.dau 生成時に追加で除外するファイル名（自己参照を避ける）
-_SKIP_FILES_DAU_EXTRA = {'updates2.dau'}
 
-# 除外するファイル拡張子（GitHub 専用ドキュメント）
-SKIP_SUFFIXES = {'.md'}
+def _is_ignored(rel_str: str, patterns: list[str]) -> bool:
+    """Check if a relative path (forward-slash separated) matches any ignore pattern."""
+    parts = rel_str.split('/')
+    basename = parts[-1]
+    for pattern in patterns:
+        if pattern.endswith('/'):
+            # Directory pattern: match if any ancestor component matches
+            dir_pat = pattern.rstrip('/')
+            if any(fnmatch.fnmatch(p, dir_pat) for p in parts[:-1]):
+                return True
+        elif '/' in pattern:
+            # Anchored path pattern (contains slash)
+            if fnmatch.fnmatch(rel_str, pattern.lstrip('/')):
+                return True
+        else:
+            # Filename pattern: match against basename
+            if fnmatch.fnmatch(basename, pattern):
+                return True
+    return False
 
 
 # ── ファイル列挙 ─────────────────────────────────────────────────────────────
 
-def collect_files(root: Path, skip_files: set[str]) -> list[tuple[str, Path]]:
+def collect_files(root: Path, ignore_patterns: list[str]) -> list[tuple[str, Path]]:
     """ゴースト配布対象ファイルの一覧を返す。
 
     `git ls-files` を使うことで .gitignore の除外設定を自動的に尊重する。
@@ -70,23 +95,15 @@ def collect_files(root: Path, skip_files: set[str]) -> list[tuple[str, Path]]:
     results = []
     for rel_str in raw_paths:
         rel_str = rel_str.replace('\\', '/')
-        parts = rel_str.split('/')
-        basename = parts[-1]
 
-        # 隠しファイル・隠しディレクトリを除外
-        if any(p.startswith('.') for p in parts):
+        # ツール自身は常に除外
+        if rel_str == 'release_ghost.py':
             continue
 
-        # 除外ファイル名
-        if basename in skip_files:
+        if _is_ignored(rel_str, ignore_patterns):
             continue
 
-        # 除外拡張子
-        suffix = ('.' + basename.rsplit('.', 1)[-1]) if '.' in basename else ''
-        if suffix.lower() in SKIP_SUFFIXES:
-            continue
-
-        abs_path = root / Path(*parts)
+        abs_path = root / Path(*rel_str.split('/'))
         if abs_path.is_file():
             results.append((rel_str, abs_path))
 
@@ -106,8 +123,9 @@ def _md5(path: Path) -> str:
 
 def cmd_dau(root: Path, output: Path) -> None:
     """updates2.dau を生成する。"""
-    skip_files = _SKIP_FILES_COMMON | _SKIP_FILES_DAU_EXTRA
-    files = collect_files(root, skip_files)
+    patterns = _load_ignore_patterns(root / '.updateignore')
+    patterns.append('updates2.dau')  # 自己参照を避ける
+    files = collect_files(root, patterns)
 
     with open(output, 'wb') as f:
         for i, (rel_str, abs_path) in enumerate(files):
@@ -134,8 +152,8 @@ def cmd_nar(root: Path, output: Path) -> None:
     updates2.dau は除外対象に含めないので、事前に dau コマンドで
     生成しておくと自動的に同梱される。
     """
-    skip_files = _SKIP_FILES_COMMON   # updates2.dau は除外しない
-    files = collect_files(root, skip_files)
+    patterns = _load_ignore_patterns(root / '.narignore')
+    files = collect_files(root, patterns)
 
     with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zf:
         for rel_str, abs_path in files:

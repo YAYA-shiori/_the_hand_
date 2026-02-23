@@ -1,3 +1,4 @@
 /.claude
 ghost/master/yaya_variable.cfg
-/__pycache__
+.gitignore
+hand_*.md

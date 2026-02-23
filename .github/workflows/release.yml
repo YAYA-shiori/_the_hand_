@@ -60,8 +60,10 @@ jobs:
         id: tag
         run: |
           TAG="v$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
+          TITLE="$(date -u +%Y/%m/%d)"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "Release tag: $TAG"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $TAG, title: $TITLE"
 
       # GitHub Release を作成して NAR のみをアップロード
       # （updates2.dau は NAR 内に同梱 & raw.githubusercontent.com で参照）
@@ -71,6 +73,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ steps.tag.outputs.tag }}" \
-            --title "${{ steps.tag.outputs.tag }}" \
+            --title "${{ steps.tag.outputs.title }}" \
             --generate-notes \
             _the_hand_.nar
+
+      # 最新リリース1件のみ残し、古いリリースとタグを自動削除
+      - name: Delete old releases
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release list --limit 100 --json tagName,createdAt \
+            --jq 'sort_by(.createdAt) | reverse | .[1:].[].tagName' \
+            | xargs -r -I{} gh release delete {} --yes --cleanup-tag

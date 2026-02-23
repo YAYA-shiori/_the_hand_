@@ -20,7 +20,7 @@ illustration：鈴風さん（http://huuryuu.bake-neko.net/index/index.html）
 - 界隈初？のセクハラゴーストです。一緒に立ってるゴーストにあんなことやこんなことをします。
 - ていうか嫌ゴです。
 - 某ゴーストマスタさんに「生理的に受け付けない」と言われました。最強。
-- 右のReleasesから最新版をダウンロードできます。（phase 'xxxx' 2008-05-29～随時更新）
+- [右のReleasesから最新版をダウンロード](https://github.com/YAYA-shiori/_the_hand_/releases)できます。（phase 'xxxx' 2008-05-29～随時更新）
 
 ### 履歴
 

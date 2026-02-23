@@ -15,7 +15,7 @@ On_username
 //---- ネットワーク更新の基準位置となるURL ----------------------------------------------
 On_homeurl
 {
-	'http://ukiya.sakura.ne.jp/ghost/_the_hand_/'
+	'https://raw.githubusercontent.com/YAYA-shiori/_the_hand_/main/'
 }
 
 //---- ポータルサイトのボタンキャプション -----------------------------------------------

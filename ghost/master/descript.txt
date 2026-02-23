@@ -11,3 +11,5 @@ icon,thehand.ico
 default.balloon.path,minbal
 
 shiori,yaya.dll
+
+homeurl,https://raw.githubusercontent.com/YAYA-shiori/_the_hand_/main/

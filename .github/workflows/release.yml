@@ -1,0 +1,76 @@
+name: Build and Release NAR
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      # updates2.dau を生成
+      - name: Generate updates2.dau
+        run: python release_ghost.py dau
+
+      # updates2.dau に変更があるか確認し、後続ステップに伝える
+      - name: Check for changes
+        id: check
+        run: |
+          git add updates2.dau
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "変更なし。リリースをスキップします。"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "変更あり。リリースを続行します。"
+          fi
+
+      # updates2.dau をリポジトリに commit & push
+      # → raw.githubusercontent.com/YAYA-shiori/_the_hand_/main/updates2.dau で参照可能になる
+      # GITHUB_TOKEN による push はワークフローを再トリガーしない
+      - name: Commit updates2.dau
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: update updates2.dau"
+          git push
+
+      # _the_hand_.nar を生成（中身はZIP、拡張子はnar）
+      # updates2.dau も NAR 内に同梱される
+      - name: Create _the_hand_.nar
+        if: steps.check.outputs.changed == 'true'
+        run: python release_ghost.py nar
+
+      # リリースタグを決定（日時 + コミットSHA短縮形）
+      - name: Set release tag
+        if: steps.check.outputs.changed == 'true'
+        id: tag
+        run: |
+          TAG="v$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Release tag: $TAG"
+
+      # GitHub Release を作成して NAR のみをアップロード
+      # （updates2.dau は NAR 内に同梱 & raw.githubusercontent.com で参照）
+      - name: Create GitHub Release
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            --title "${{ steps.tag.outputs.tag }}" \
+            --generate-notes \
+            _the_hand_.nar

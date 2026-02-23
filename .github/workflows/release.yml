@@ -3,6 +3,7 @@ name: Build and Release NAR
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -51,12 +52,12 @@ jobs:
       # _the_hand_.nar を生成（中身はZIP、拡張子はnar）
       # updates2.dau も NAR 内に同梱される
       - name: Create _the_hand_.nar
-        if: steps.check.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: python release_ghost.py nar
 
       # リリースタグを決定（日時 + コミットSHA短縮形）
       - name: Set release tag
-        if: steps.check.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         id: tag
         run: |
           TAG="v$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
@@ -68,7 +69,7 @@ jobs:
       # GitHub Release を作成して NAR のみをアップロード
       # （updates2.dau は NAR 内に同梱 & raw.githubusercontent.com で参照）
       - name: Create GitHub Release
-        if: steps.check.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -79,7 +80,7 @@ jobs:
 
       # 最新リリース1件のみ残し、古いリリースとタグを自動削除
       - name: Delete old releases
-        if: steps.check.outputs.changed == 'true'
+        if: steps.check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

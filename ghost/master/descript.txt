@@ -4,6 +4,9 @@ type,ghost
 sakura.name,Hand
 kero.name,Dummy
 
+craftman,UkagakaTechTeam
+craftmanw,Ukagaka Tech Team
+
 sstp.allowunspecifiedsend,1
 
 icon,thehand.ico

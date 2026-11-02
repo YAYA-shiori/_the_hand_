@@ -1,4 +1,34 @@
-/.claude
-ghost/master/yaya_variable.cfg
-.gitignore
+# Files excluded when creating the .nar (gitignore syntax).
+# Used by SSP and by .github/scripts/build-site.ps1. .updateignore includes this file.
+# https://ssp.shillest.net/ukadoc/manual/descript_install.html
+
+# notes for developers; not shipped in the nar or in network updates
 hand_*.md
+/.claude/
+/.mcp.json
+/.agents/
+
+# files of the repository (git, editor, GitHub); the nar does not need them
+/.github/
+/.gitignore
+/.gitattributes
+/.editorconfig
+/.narignore
+/.updateignore
+
+# git metadata
+.git
+.gitmodules
+
+# needed only by network updates (.updateignore includes it again)
+/delete.txt
+
+# network update files
+updates2.dau
+updates.txt
+
+# runtime data
+profile/
+yaya_variable.cfg
+__pycache__/
+*.nar

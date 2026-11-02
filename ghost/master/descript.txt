@@ -12,4 +12,4 @@ default.balloon.path,minbal
 
 shiori,yaya.dll
 
-homeurl,https://raw.githubusercontent.com/YAYA-shiori/_the_hand_/main/
+homeurl,https://yaya-shiori.github.io/_the_hand_/

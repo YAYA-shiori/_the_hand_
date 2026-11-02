@@ -67,3 +67,4 @@ communicatebox.height,18
 
 craftmanw,FA-X
 craftmanurl,http://fa-x.hp.infoseek.co.jp/
+homeurl,https://yaya-shiori.github.io/_the_hand_/minbal/

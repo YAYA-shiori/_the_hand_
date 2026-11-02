@@ -6,6 +6,7 @@ kero.name,Dummy
 
 craftman,UkagakaTechTeam
 craftmanw,Ukagaka Tech Team
+craftmanurl,https://ukatech.shillest.net/
 
 sstp.allowunspecifiedsend,1
 

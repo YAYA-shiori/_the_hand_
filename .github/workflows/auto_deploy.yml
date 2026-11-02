@@ -5,7 +5,9 @@ name: auto deploy
 # Set "Settings > Pages > Build and deployment > Source" of the repository to "GitHub Actions".
 #
 # updates2.dau at the root is a committed, frozen file for users of the old homeurl (raw.githubusercontent.com).
-# Do not delete or regenerate it.
+# It lists only the files that carry the new homeurl (descript.txt, thehand_string.dic) and delete.txt.
+# Do not delete or regenerate it, and do not change the listed files until those users have moved on
+# (the MD5 in the list would no longer match).
 
 on:
   workflow_run:

@@ -61,6 +61,8 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: upload
+        # Keep v3: site/.ukagaka (metainfo) starts with "." and v4 of this action leaves such folders out as hidden files.
+        # Do not accept an automatic upgrade to v4 unless the artifact is made by hand.
         uses: actions/upload-pages-artifact@v3
         with:
           path: site

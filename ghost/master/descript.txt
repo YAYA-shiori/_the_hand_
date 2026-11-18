@@ -17,3 +17,4 @@ default.balloon.path,minbal
 shiori,yaya.dll
 
 homeurl,https://yaya-shiori.github.io/_the_hand_/
+metainfo,https://yaya-shiori.github.io/_the_hand_/.ukagaka/

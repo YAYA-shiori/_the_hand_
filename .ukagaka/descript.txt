@@ -1,0 +1,11 @@
+//meta info
+type,ghost
+name,The Hand
+uuid,OxbtrwoBE+a3SWuyNd09qg==
+sakura.name,Hand
+kero.name,Dummy
+has_terms,0
+homeurl,https://yaya-shiori.github.io/_the_hand_/
+craftman,UkagakaTechTeam
+craftmanurl,https://ukatech.shillest.net/
+languages,ja

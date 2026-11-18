@@ -304,6 +304,17 @@ foreach ($b in $balloons) {
     Write-Host ("wrote {0}/updates2.dau and updates.txt ({1} files)" -f $b.Name, $b.Files.Count)
 }
 
+# metainfo (https://ukatech.shillest.net/metainfo-standard/): .ukagaka/ is read by web apps from the site, at
+# "metainfo" in ghost/master/descript.txt. It is not in the nar or in the update files (.narignore), so it is copied here.
+# The folder name starts with ".": actions/upload-pages-artifact v4 would leave it out (v3 keeps it), see auto_deploy.yml.
+foreach ($metaFile in @($files | Where-Object { $_.StartsWith('.ukagaka/', [StringComparison]::OrdinalIgnoreCase) })) {
+    $metaTarget = Join-Path $OutDir $metaFile
+    $metaDir = Split-Path $metaTarget -Parent
+    if (-not (Test-Path -LiteralPath $metaDir)) { New-Item -ItemType Directory -Path $metaDir -Force | Out-Null }
+    Copy-Item -LiteralPath (Join-Path $Root $metaFile) -Destination $metaTarget -Force
+}
+Write-Host ("copied metainfo (.ukagaka/): {0} files" -f @($files | Where-Object { $_.StartsWith('.ukagaka/', [StringComparison]::OrdinalIgnoreCase) }).Count)
+
 # GitHub Pages: do not run Jekyll (it would hide files and folders whose names start with "_" or ".")
 [IO.File]::WriteAllText((Join-Path $OutDir '.nojekyll'), '', $utf8)
 $balloonLinks = ''

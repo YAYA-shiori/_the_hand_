@@ -16,6 +16,14 @@ hand_*.md
 /.narignore
 /.updateignore
 
+# metainfo for web apps (published on GitHub Pages by .github/scripts/build-site.ps1; not shipped in the nar)
+/.ukagaka/
+
+# repository files of the yaya-dic submodule (the dictionaries, docs and LICENSE are shipped)
+/ghost/master/dic/system/.github/
+/ghost/master/dic/system/.vscode/
+/ghost/master/dic/system/.gitattributes
+
 # git metadata
 .git
 .gitmodules

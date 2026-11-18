@@ -6,8 +6,8 @@ name: auto deploy
 #
 # updates2.dau at the root is a committed, frozen file for users of the old homeurl (raw.githubusercontent.com).
 # It lists only the files that carry the new homeurl (descript.txt, thehand_string.dic) and delete.txt.
-# Do not delete or regenerate it, and do not change the listed files until those users have moved on
-# (the MD5 in the list would no longer match).
+# Do not delete or regenerate it. It is maintained by hand: when a listed file changes, recompute its MD5, size
+# and date (from the committed file) in updates2.dau in the same commit, or the update of those users fails.
 
 on:
   workflow_run:

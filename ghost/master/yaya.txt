@@ -11,11 +11,10 @@ charset.extension,Shift_JIS
 //------------------------------------------------------------------------------
 //システム辞書
 //------------------------------------------------------------------------------
-dic, yaya_config.dic		// YAYA:設定辞書。必ず最初に指定すること。
-
-dic, system/yaya_shiori3.dic	// YAYA:システム辞書
-dic, system/yaya_optional.dic	// YAYA:オプション機能群用辞書
-//dic, system/yaya_compatible.dic	// YAYA:AYA過去互換用辞書
+// yaya-dic（git submodule）。設定辞書・システム辞書・オプション機能群用辞書をまとめて読み込む。
+// 読み込む辞書の選択は dic/system/yaya_base/_loading_order.txt、設定値は dic/system/yaya_base/config.dic。
+// 必ずゴースト辞書より前に指定すること。
+dicdir, dic/system
 
 //------------------------------------------------------------------------------
 //Handゴースト辞書
